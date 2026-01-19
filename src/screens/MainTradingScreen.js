@@ -365,12 +365,22 @@ const TradingProvider = ({ children, navigation }) => {
   const fetchMarketWatchNews = async () => {
     try {
       const res = await fetch(`${API_URL}/news/marketwatch`);
-      const data = await res.json();
-      if (data.success && data.news) {
-        setMarketWatchNews(data.news);
+      if (!res.ok) {
+        // News endpoint not available, skip silently
+        setLoadingNews(false);
+        return;
+      }
+      const text = await res.text();
+      // Check if response is valid JSON before parsing
+      if (text && text.startsWith('{')) {
+        const data = JSON.parse(text);
+        if (data.success && data.news) {
+          setMarketWatchNews(data.news);
+        }
       }
     } catch (e) {
-      console.error('Error fetching MarketWatch news:', e);
+      // Silently fail - news is optional
+      console.log('News fetch skipped:', e.message);
     } finally {
       setLoadingNews(false);
     }
@@ -555,7 +565,8 @@ const TradingProvider = ({ children, navigation }) => {
       loading, accountSummary, totalFloatingPnl, realTimeEquity, realTimeFreeMargin,
       fetchOpenTrades, fetchPendingOrders, fetchTradeHistory, fetchAccountSummary,
       calculatePnl, logout, setInstruments,
-      marketWatchNews, loadingNews, fetchMarketWatchNews
+      marketWatchNews, loadingNews, fetchMarketWatchNews,
+      navigation
     }}>
       {children}
     </TradingContext.Provider>
@@ -565,32 +576,14 @@ const TradingProvider = ({ children, navigation }) => {
 // HOME TAB
 const HomeTab = ({ navigation }) => {
   const ctx = React.useContext(TradingContext);
+  const { colors, isDark } = useTheme();
   const parentNav = navigation.getParent();
   const [refreshing, setRefreshing] = useState(false);
-  const [unreadNotifications, setUnreadNotifications] = useState(0);
-
-  useEffect(() => {
-    fetchUnreadCount();
-    const interval = setInterval(fetchUnreadCount, 30000); // Refresh every 30 seconds
-    return () => clearInterval(interval);
-  }, [ctx.user]);
-
-  const fetchUnreadCount = async () => {
-    if (!ctx.user?._id) return;
-    try {
-      const res = await fetch(`${API_URL}/notifications/user/${ctx.user._id}/unread-count`);
-      const data = await res.json();
-      setUnreadNotifications(data.count || 0);
-    } catch (e) {
-      // Silently fail - not critical
-    }
-  };
 
   const onRefresh = async () => {
     setRefreshing(true);
     await ctx.fetchAccountSummary();
     await ctx.fetchOpenTrades();
-    await fetchUnreadCount();
     setRefreshing(false);
   };
 
@@ -604,31 +597,20 @@ const HomeTab = ({ navigation }) => {
 
   return (
     <ScrollView 
-      style={styles.container}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#d4af37" />}
+      style={[styles.container, { backgroundColor: colors.bgPrimary }]}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
     >
       {/* Header */}
-      <View style={styles.homeHeader}>
+      <View style={[styles.homeHeader, { backgroundColor: colors.bgPrimary }]}>
         <View>
-          <Text style={styles.greeting}>Welcome back,</Text>
-          <Text style={styles.userName}>{ctx.user?.firstName || 'Trader'}</Text>
+          <Text style={[styles.greeting, { color: colors.textMuted }]}>Welcome back,</Text>
+          <Text style={[styles.userName, { color: colors.textPrimary }]}>{ctx.user?.firstName || 'Trader'}</Text>
         </View>
-        <TouchableOpacity 
-          style={styles.notificationBtn}
-          onPress={() => parentNav?.navigate('Notifications')}
-        >
-          <Ionicons name="notifications-outline" size={24} color="#fff" />
-          {unreadNotifications > 0 && (
-            <View style={styles.notificationBadge}>
-              <Text style={styles.notificationBadgeText}>{unreadNotifications > 9 ? '9+' : unreadNotifications}</Text>
-            </View>
-          )}
-        </TouchableOpacity>
       </View>
 
       {/* Account Card - Real-time responsive */}
       {ctx.selectedAccount && (
-        <View style={styles.accountCard}>
+        <View style={[styles.accountCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
           <TouchableOpacity style={styles.accountCardHeader}>
             <View style={styles.accountIconContainer}>
               <Ionicons name="person-outline" size={20} color="#d4af37" />
@@ -718,12 +700,12 @@ const HomeTab = ({ navigation }) => {
         </TouchableOpacity>
       </View>
 
-      {/* MarketWatch Real-Time News */}
+      {/* MarketWatch News */}
       <View style={styles.marketWatchSection}>
         <View style={styles.marketWatchHeader}>
           <View style={styles.marketWatchTitleRow}>
-            <Ionicons name="newspaper-outline" size={20} color="#d4af37" />
-            <Text style={styles.marketWatchTitle}>MarketWatch News</Text>
+            <Ionicons name="newspaper-outline" size={20} color={colors.primary} />
+            <Text style={[styles.marketWatchTitle, { color: colors.textPrimary }]}>MarketWatch News</Text>
           </View>
           <View style={styles.liveIndicator}>
             <View style={styles.liveDot} />
@@ -731,50 +713,48 @@ const HomeTab = ({ navigation }) => {
           </View>
         </View>
         
-        {ctx.loadingNews ? (
-          <View style={styles.newsLoadingContainer}>
-            <ActivityIndicator size="small" color="#d4af37" />
-            <Text style={styles.newsLoadingText}>Loading news...</Text>
-          </View>
-        ) : (
-          <View style={styles.newsListContainer}>
-            {ctx.marketWatchNews?.slice(0, 20).map((item, index) => (
-              <TouchableOpacity 
-                key={item.id || index} 
-                style={styles.newsCard}
-                onPress={() => item.url && Linking.openURL(item.url)}
-                activeOpacity={0.7}
-              >
-                {item.image && (
-                  <Image 
-                    source={{ uri: item.image }} 
-                    style={styles.newsCardImage}
-                    resizeMode="cover"
-                  />
-                )}
-                <View style={styles.newsCardContent}>
-                  <View style={styles.newsCardHeader}>
-                    <View style={styles.newsCategoryBadge}>
-                      <Text style={styles.newsCategoryText}>{item.category || 'Markets'}</Text>
-                    </View>
-                    <Text style={styles.newsTimeText}>{item.time}</Text>
-                  </View>
-                  <Text style={styles.newsCardTitle} numberOfLines={3}>{item.title}</Text>
-                  {item.summary ? (
-                    <Text style={styles.newsCardSummary} numberOfLines={2}>{item.summary}</Text>
-                  ) : null}
-                  <View style={styles.newsCardFooter}>
-                    <View style={styles.newsSourceRow}>
-                      <Ionicons name="globe-outline" size={12} color="#888" />
-                      <Text style={styles.newsSourceText}>{item.source || 'MarketWatch'}</Text>
-                    </View>
-                    <Ionicons name="chevron-forward" size={16} color="#666" />
-                  </View>
-                </View>
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
+        <View style={[styles.marketWatchNewsContainer, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+          <WebView
+            source={{ uri: 'https://www.marketwatch.com/latest-news?mod=top_nav' }}
+            style={styles.marketWatchWebView}
+            scrollEnabled={true}
+            nestedScrollEnabled={true}
+            javaScriptEnabled={true}
+            domStorageEnabled={true}
+            startInLoadingState={true}
+            injectedJavaScript={`
+              (function() {
+                // Hide header, footer, ads for cleaner view
+                const style = document.createElement('style');
+                style.textContent = \`
+                  header, footer, .ad, .advertisement, nav, .site-header, .site-footer,
+                  .sticky-header, .banner, [data-track-module="MW_Header"],
+                  .region--aside, .element--ad { display: none !important; }
+                  body { background: ${isDark ? '#000' : '#fff'} !important; padding-top: 0 !important; }
+                  .container { padding: 10px !important; }
+                  .article__headline { font-size: 14px !important; }
+                \`;
+                document.head.appendChild(style);
+                window.scrollTo(0, 0);
+              })();
+              true;
+            `}
+            onShouldStartLoadWithRequest={(request) => {
+              // Open external links in browser
+              if (request.url.includes('marketwatch.com')) {
+                return true;
+              }
+              Linking.openURL(request.url);
+              return false;
+            }}
+            renderLoading={() => (
+              <View style={styles.newsLoadingContainer}>
+                <ActivityIndicator size="small" color={colors.primary} />
+                <Text style={[styles.newsLoadingText, { color: colors.textMuted }]}>Loading MarketWatch...</Text>
+              </View>
+            )}
+          />
+        </View>
       </View>
 
       <View style={{ height: 100 }} />
@@ -2603,17 +2583,17 @@ const ChartTab = () => {
 // MORE TAB - Matching screenshot exactly
 const MoreTab = ({ navigation }) => {
   const ctx = React.useContext(TradingContext);
+  const { colors, isDark, toggleTheme } = useTheme();
   const parentNav = navigation.getParent();
-  const [isDarkMode, setIsDarkMode] = useState(true);
 
   const menuItems = [
-    { icon: 'book-outline', label: 'Orders', screen: 'OrderBook', isTab: false, color: '#d4af37' },
-    { icon: 'wallet-outline', label: 'Wallet', screen: 'Wallet', isTab: false, color: '#d4af37' },
-    { icon: 'copy-outline', label: 'Copy Trade', screen: 'CopyTrade', isTab: false, color: '#d4af37' },
-    { icon: 'people-outline', label: 'IB Program', screen: 'IB', isTab: false, color: '#d4af37' },
-    { icon: 'person-outline', label: 'Profile', screen: 'Profile', isTab: false, color: '#d4af37' },
-    { icon: 'help-circle-outline', label: 'Support', screen: 'Support', isTab: false, color: '#d4af37' },
-    { icon: 'document-text-outline', label: 'Instructions', screen: 'Instructions', isTab: false, color: '#d4af37' },
+    { icon: 'book-outline', label: 'Orders', screen: 'OrderBook', isTab: false, color: colors.primary },
+    { icon: 'wallet-outline', label: 'Wallet', screen: 'Wallet', isTab: false, color: colors.primary },
+    { icon: 'copy-outline', label: 'Copy Trade', screen: 'CopyTrade', isTab: false, color: colors.primary },
+    { icon: 'people-outline', label: 'IB Program', screen: 'IB', isTab: false, color: colors.primary },
+    { icon: 'person-outline', label: 'Profile', screen: 'Profile', isTab: false, color: colors.primary },
+    { icon: 'help-circle-outline', label: 'Support', screen: 'Support', isTab: false, color: colors.primary },
+    { icon: 'document-text-outline', label: 'Instructions', screen: 'Instructions', isTab: false, color: colors.primary },
   ];
 
   const handleNavigate = (screen, isTab) => {
@@ -2625,48 +2605,84 @@ const MoreTab = ({ navigation }) => {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.bgPrimary }]}>
       {/* Header */}
-      <View style={styles.moreMenuHeader}>
-        <Text style={styles.moreMenuTitle}>More</Text>
+      <View style={[styles.moreMenuHeader, { backgroundColor: colors.bgPrimary }]}>
+        <Text style={[styles.moreMenuTitle, { color: colors.textPrimary }]}>More</Text>
       </View>
 
       {/* Menu Items */}
       <ScrollView style={styles.moreMenuList}>
         {menuItems.map((item, index) => (
-          <TouchableOpacity key={index} style={styles.moreMenuItem} onPress={() => handleNavigate(item.screen, item.isTab)}>
+          <TouchableOpacity key={index} style={[styles.moreMenuItem, { borderBottomColor: colors.border }]} onPress={() => handleNavigate(item.screen, item.isTab)}>
             <View style={[styles.moreMenuIcon, { backgroundColor: `${item.color}20` }]}>
               <Ionicons name={item.icon} size={20} color={item.color} />
             </View>
-            <Text style={styles.moreMenuItemText}>{item.label}</Text>
-            <Ionicons name="chevron-forward" size={18} color="#666" />
+            <Text style={[styles.moreMenuItemText, { color: colors.textPrimary }]}>{item.label}</Text>
+            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
           </TouchableOpacity>
         ))}
 
         {/* Dark/Light Mode Toggle */}
-        <View style={styles.themeToggleItem}>
-          <View style={[styles.moreMenuIcon, { backgroundColor: '#d4af3720' }]}>
-            <Ionicons name={isDarkMode ? 'moon' : 'sunny'} size={20} color="#d4af37" />
+        <View style={[styles.themeToggleItem, { borderBottomColor: colors.border }]}>
+          <View style={[styles.moreMenuIcon, { backgroundColor: `${colors.primary}20` }]}>
+            <Ionicons name={isDark ? 'moon' : 'sunny'} size={20} color={colors.primary} />
           </View>
-          <Text style={styles.moreMenuItemText}>Dark Mode</Text>
+          <Text style={[styles.moreMenuItemText, { color: colors.textPrimary }]}>Dark Mode</Text>
           <TouchableOpacity 
-            style={[styles.themeToggle, isDarkMode && styles.themeToggleActive]}
-            onPress={() => setIsDarkMode(!isDarkMode)}
+            style={[styles.themeToggle, { backgroundColor: isDark ? colors.primary : colors.border }, isDark && styles.themeToggleActive]}
+            onPress={toggleTheme}
           >
-            <View style={[styles.themeToggleThumb, isDarkMode && styles.themeToggleThumbActive]} />
+            <View style={[styles.themeToggleThumb, isDark && styles.themeToggleThumbActive]} />
           </TouchableOpacity>
         </View>
 
         {/* Logout */}
-        <TouchableOpacity style={styles.moreMenuItem} onPress={ctx.logout}>
-          <View style={[styles.moreMenuIcon, { backgroundColor: '#d4af3720' }]}>
-            <Ionicons name="log-out-outline" size={20} color="#d4af37" />
+        <TouchableOpacity style={[styles.moreMenuItem, { borderBottomColor: colors.border }]} onPress={ctx.logout}>
+          <View style={[styles.moreMenuIcon, { backgroundColor: `${colors.primary}20` }]}>
+            <Ionicons name="log-out-outline" size={20} color={colors.primary} />
           </View>
-          <Text style={[styles.moreMenuItemText, { color: '#d4af37' }]}>Log Out</Text>
-          <Ionicons name="chevron-forward" size={18} color="#666" />
+          <Text style={[styles.moreMenuItemText, { color: colors.primary }]}>Log Out</Text>
+          <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
         </TouchableOpacity>
       </ScrollView>
     </View>
+  );
+};
+
+// Tab Navigator with theme support
+const ThemedTabNavigator = () => {
+  const { colors } = useTheme();
+  
+  return (
+    <Tab.Navigator
+      screenOptions={({ route }) => ({
+        headerShown: false,
+        tabBarStyle: { 
+          backgroundColor: colors.tabBarBg, 
+          borderTopColor: colors.border, 
+          height: 60, 
+          paddingBottom: 8 
+        },
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.textMuted,
+        tabBarIcon: ({ focused, color, size }) => {
+          let iconName;
+          if (route.name === 'Home') iconName = focused ? 'home' : 'home-outline';
+          else if (route.name === 'Market') iconName = focused ? 'stats-chart' : 'stats-chart-outline';
+          else if (route.name === 'Trade') iconName = focused ? 'trending-up' : 'trending-up-outline';
+          else if (route.name === 'Chart') iconName = focused ? 'analytics' : 'analytics-outline';
+          else if (route.name === 'More') iconName = focused ? 'menu' : 'menu-outline';
+          return <Ionicons name={iconName} size={size} color={color} />;
+        },
+      })}
+    >
+      <Tab.Screen name="Home" component={HomeTab} />
+      <Tab.Screen name="Market" component={QuotesTab} />
+      <Tab.Screen name="Trade" component={TradeTab} />
+      <Tab.Screen name="Chart" component={ChartTab} />
+      <Tab.Screen name="More" component={MoreTab} />
+    </Tab.Navigator>
   );
 };
 
@@ -2675,29 +2691,7 @@ const MainTradingScreen = ({ navigation }) => {
   return (
     <ToastProvider>
       <TradingProvider navigation={navigation}>
-        <Tab.Navigator
-          screenOptions={({ route }) => ({
-            headerShown: false,
-            tabBarStyle: styles.tabBar,
-            tabBarActiveTintColor: '#d4af37',
-            tabBarInactiveTintColor: '#666',
-            tabBarIcon: ({ focused, color, size }) => {
-              let iconName;
-              if (route.name === 'Home') iconName = focused ? 'home' : 'home-outline';
-              else if (route.name === 'Market') iconName = focused ? 'stats-chart' : 'stats-chart-outline';
-              else if (route.name === 'Trade') iconName = focused ? 'trending-up' : 'trending-up-outline';
-              else if (route.name === 'Chart') iconName = focused ? 'analytics' : 'analytics-outline';
-              else if (route.name === 'More') iconName = focused ? 'menu' : 'menu-outline';
-              return <Ionicons name={iconName} size={size} color={color} />;
-            },
-          })}
-        >
-          <Tab.Screen name="Home" component={HomeTab} />
-          <Tab.Screen name="Market" component={QuotesTab} />
-          <Tab.Screen name="Trade" component={TradeTab} />
-          <Tab.Screen name="Chart" component={ChartTab} />
-          <Tab.Screen name="More" component={MoreTab} />
-        </Tab.Navigator>
+        <ThemedTabNavigator />
       </TradingProvider>
     </ToastProvider>
   );
@@ -2719,7 +2713,7 @@ const styles = StyleSheet.create({
   notificationBadge: { position: 'absolute', top: 4, right: 4, backgroundColor: '#ef4444', width: 18, height: 18, borderRadius: 9, justifyContent: 'center', alignItems: 'center' },
   notificationBadgeText: { color: '#fff', fontSize: 10, fontWeight: 'bold' },
   
-  accountCard: { margin: 16, padding: 16, backgroundColor: '#000000', borderRadius: 16, borderWidth: 1, borderColor: '#000000' },
+  accountCard: { margin: 16, padding: 16, backgroundColor: '#000000', borderRadius: 16, borderWidth: 1, borderColor: '#1a1a1a' },
   accountCardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
   accountIconContainer: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#d4af3720', justifyContent: 'center', alignItems: 'center' },
   accountInfo: { flex: 1, marginLeft: 12 },
@@ -2742,12 +2736,12 @@ const styles = StyleSheet.create({
   actionButtons: { flexDirection: 'row', gap: 8, marginHorizontal: 16, marginTop: 12 },
   depositBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 12, backgroundColor: '#d4af37', borderRadius: 12 },
   depositBtnText: { color: '#000', fontSize: 14, fontWeight: '600' },
-  withdrawBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 12, backgroundColor: '#000000', borderRadius: 12, borderWidth: 1, borderColor: '#000000' },
+  withdrawBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 12, backgroundColor: '#000000', borderRadius: 12, borderWidth: 1, borderColor: '#1a1a1a' },
   withdrawBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' },
   
   // Quick Actions Row - 4 buttons only
   quickActionsRow: { flexDirection: 'row', paddingHorizontal: 12, paddingVertical: 8, gap: 8 },
-  quickActionCard: { flex: 1, alignItems: 'center', paddingVertical: 16, backgroundColor: '#000000', borderRadius: 12, borderWidth: 1, borderColor: '#000000' },
+  quickActionCard: { flex: 1, alignItems: 'center', paddingVertical: 16, backgroundColor: '#000000', borderRadius: 12, borderWidth: 1, borderColor: '#1a1a1a' },
   quickActionIconBg: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center', marginBottom: 8 },
   quickActionLabel: { color: '#fff', fontSize: 11, fontWeight: '500' },
   
@@ -2761,6 +2755,8 @@ const styles = StyleSheet.create({
   liveText: { color: '#ef4444', fontSize: 10, fontWeight: '700' },
   newsLoadingContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 30, gap: 10 },
   newsLoadingText: { color: '#666', fontSize: 14 },
+  marketWatchNewsContainer: { height: 450, borderRadius: 16, overflow: 'hidden', borderWidth: 1 },
+  marketWatchWebView: { flex: 1, backgroundColor: 'transparent' },
   newsListContainer: { gap: 12 },
   newsCard: { backgroundColor: '#111', borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: '#222' },
   newsCardImage: { width: '100%', height: 160, backgroundColor: '#1a1a1a' },
@@ -2776,7 +2772,7 @@ const styles = StyleSheet.create({
   newsSourceText: { color: '#888', fontSize: 12 },
   
   // Positions Card
-  positionsCard: { margin: 16, padding: 16, backgroundColor: '#000000', borderRadius: 16, borderWidth: 1, borderColor: '#000000' },
+  positionsCard: { margin: 16, padding: 16, backgroundColor: '#000000', borderRadius: 16, borderWidth: 1, borderColor: '#1a1a1a' },
   positionsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   positionsTitle: { color: '#fff', fontSize: 16, fontWeight: '600' },
   positionsCount: { color: '#d4af37', fontSize: 14 },
@@ -2789,20 +2785,20 @@ const styles = StyleSheet.create({
   // News Section (Home Tab)
   newsSection: { margin: 16, marginTop: 8 },
   newsSectionTitle: { color: '#fff', fontSize: 18, fontWeight: '600', marginBottom: 12 },
-  newsTabs: { flexDirection: 'row', backgroundColor: '#000000', borderRadius: 12, padding: 4, marginBottom: 12, borderWidth: 1, borderColor: '#000000' },
+  newsTabs: { flexDirection: 'row', backgroundColor: '#000000', borderRadius: 12, padding: 4, marginBottom: 12, borderWidth: 1, borderColor: '#1a1a1a' },
   newsTab: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: 10 },
   newsTabActive: { backgroundColor: '#000000' },
   newsTabText: { color: '#666', fontSize: 12, fontWeight: '500' },
   newsTabTextActive: { color: '#d4af37' },
   newsContent: {},
-  newsItem: { backgroundColor: '#000000', borderRadius: 12, padding: 16, marginBottom: 10, borderWidth: 1, borderColor: '#000000' },
+  newsItem: { backgroundColor: '#000000', borderRadius: 12, padding: 16, marginBottom: 10, borderWidth: 1, borderColor: '#1a1a1a' },
   newsCategory: { backgroundColor: '#d4af3720', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, alignSelf: 'flex-start', marginBottom: 8 },
   newsCategoryText: { color: '#d4af37', fontSize: 11, fontWeight: '600' },
   newsTitle: { color: '#fff', fontSize: 14, fontWeight: '500', lineHeight: 20, marginBottom: 8 },
   newsMeta: { flexDirection: 'row', justifyContent: 'space-between' },
   newsSource: { color: '#888', fontSize: 12 },
   newsTime: { color: '#666', fontSize: 12 },
-  calendarContent: { backgroundColor: '#000000', borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: '#000000' },
+  calendarContent: { backgroundColor: '#000000', borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: '#1a1a1a' },
   calendarHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 10, backgroundColor: '#000000', borderBottomWidth: 1, borderBottomColor: '#000000' },
   calendarHeaderText: { color: '#666', fontSize: 11, fontWeight: '600', width: 50, textAlign: 'center' },
   calendarRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#000000' },
@@ -2824,7 +2820,7 @@ const styles = StyleSheet.create({
   emptyState: { alignItems: 'center', padding: 40 },
   emptyText: { color: '#666', marginTop: 12 },
   
-  tradeItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, backgroundColor: '#000000', borderRadius: 12, marginBottom: 8, borderWidth: 1, borderColor: '#000000' },
+  tradeItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, backgroundColor: '#000000', borderRadius: 12, marginBottom: 8, borderWidth: 1, borderColor: '#1a1a1a' },
   tradeLeft: {},
   tradeSymbol: { color: '#fff', fontSize: 16, fontWeight: '600' },
   tradeSide: { fontSize: 12, marginTop: 4 },
@@ -2843,7 +2839,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     minHeight: 44,
     borderWidth: 1,
-    borderColor: '#000000',
+    borderColor: '#1a1a1a',
   },
   searchInput: { flex: 1, marginLeft: 8, color: '#fff', fontSize: 14, paddingVertical: 0 },
   
@@ -2859,7 +2855,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#000000', 
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#000000',
+    borderColor: '#1a1a1a',
   },
   marketTabsContainer: {
     flexDirection: 'row',
@@ -2914,7 +2910,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#000000',
+    borderColor: '#1a1a1a',
   },
   segmentHeader: {
     flexDirection: 'row',
@@ -2957,7 +2953,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     minWidth: 50,
     borderWidth: 1,
-    borderColor: '#000000',
+    borderColor: '#1a1a1a',
   },
   categoryBtnActive: { backgroundColor: '#d4af37' },
   categoryText: { color: '#666', fontSize: 12, fontWeight: '500' },
@@ -2979,7 +2975,7 @@ const styles = StyleSheet.create({
   bidPrice: { color: '#3b82f6', fontSize: 13, fontWeight: '500' },
   askPrice: { color: '#ef4444', fontSize: 13, fontWeight: '500' },
   priceLabel: { color: '#666', fontSize: 9, marginTop: 1 },
-  spreadBadgeCol: { backgroundColor: '#000000', paddingHorizontal: 6, paddingVertical: 4, borderRadius: 4, marginHorizontal: 4, minWidth: 32, alignItems: 'center', borderWidth: 1, borderColor: '#000000' },
+  spreadBadgeCol: { backgroundColor: '#000000', paddingHorizontal: 6, paddingVertical: 4, borderRadius: 4, marginHorizontal: 4, minWidth: 32, alignItems: 'center', borderWidth: 1, borderColor: '#1a1a1a' },
   spreadBadgeText: { color: '#d4af37', fontSize: 11, fontWeight: '600' },
   chartIconBtn: { 
     width: 32, 
@@ -2989,7 +2985,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#000000', 
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#000000',
+    borderColor: '#1a1a1a',
   },
   
   // Chart Trading Panel - One Click Buy/Sell
@@ -3036,7 +3032,7 @@ const styles = StyleSheet.create({
   orderTypeBtnText: { color: '#666', fontSize: 13, fontWeight: '600' },
   orderTypeBtnTextActive: { color: '#000' },
   pendingTypeRow: { flexDirection: 'row', gap: 8, marginBottom: 10 },
-  pendingTypeBtn: { flex: 1, paddingVertical: 8, borderRadius: 8, alignItems: 'center', backgroundColor: '#000000', borderWidth: 1, borderColor: '#000000' },
+  pendingTypeBtn: { flex: 1, paddingVertical: 8, borderRadius: 8, alignItems: 'center', backgroundColor: '#000000', borderWidth: 1, borderColor: '#1a1a1a' },
   pendingTypeBtnActive: { backgroundColor: '#000000', borderColor: '#d4af37' },
   pendingTypeText: { color: '#666', fontSize: 12 },
   pendingTypeTextActive: { color: '#d4af37' },
@@ -3053,7 +3049,7 @@ const styles = StyleSheet.create({
   finalSellBtn: { flex: 1, backgroundColor: '#ef4444', paddingVertical: 12, borderRadius: 8, alignItems: 'center' },
   finalBuyBtn: { flex: 1, backgroundColor: '#3b82f6', paddingVertical: 12, borderRadius: 8, alignItems: 'center' },
   finalBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' },
-  spreadBadge: { backgroundColor: '#000000', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4, marginHorizontal: 8, borderWidth: 1, borderColor: '#000000' },
+  spreadBadge: { backgroundColor: '#000000', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4, marginHorizontal: 8, borderWidth: 1, borderColor: '#1a1a1a' },
   spreadText: { color: '#d4af37', fontSize: 10 },
   
   // Trade
@@ -3106,7 +3102,7 @@ const styles = StyleSheet.create({
   slTpModalTitle: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
   slTpInputGroup: { marginBottom: 16 },
   slTpLabel: { color: '#888', fontSize: 13, marginBottom: 8 },
-  slTpInput: { backgroundColor: '#000000', borderRadius: 12, padding: 16, color: '#fff', fontSize: 16, borderWidth: 1, borderColor: '#000000' },
+  slTpInput: { backgroundColor: '#000000', borderRadius: 12, padding: 16, color: '#fff', fontSize: 16, borderWidth: 1, borderColor: '#1a1a1a' },
   slTpCurrentInfo: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16, paddingHorizontal: 4 },
   slTpCurrentText: { color: '#888', fontSize: 13 },
   slTpButtonRow: { flexDirection: 'row', gap: 12, marginTop: 8 },
@@ -3321,13 +3317,13 @@ const styles = StyleSheet.create({
   
   // Leverage Selector
   leverageSelector: { flexDirection: 'row', gap: 6 },
-  leverageOption: { paddingHorizontal: 10, paddingVertical: 6, backgroundColor: '#000000', borderRadius: 6, borderWidth: 1, borderColor: '#000000' },
+  leverageOption: { paddingHorizontal: 10, paddingVertical: 6, backgroundColor: '#000000', borderRadius: 6, borderWidth: 1, borderColor: '#1a1a1a' },
   leverageOptionActive: { backgroundColor: '#d4af3720', borderColor: '#d4af37' },
   leverageOptionText: { color: '#888', fontSize: 12, fontWeight: '600' },
   leverageOptionTextActive: { color: '#d4af37' },
   
   // Account Selector - Below search bar
-  accountSelector: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#000000', marginHorizontal: 12, marginTop: 0, marginBottom: 8, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: '#000000' },
+  accountSelector: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#000000', marginHorizontal: 12, marginTop: 0, marginBottom: 8, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: '#1a1a1a' },
   accountSelectorLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   accountIcon: { width: 24, height: 24, borderRadius: 12, backgroundColor: '#d4af3720', justifyContent: 'center', alignItems: 'center' },
   accountSelectorLabel: { color: '#666', fontSize: 9 },

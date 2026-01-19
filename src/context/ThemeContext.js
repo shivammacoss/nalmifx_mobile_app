@@ -1,9 +1,10 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { API_URL } from '../config';
+import * as SecureStore from 'expo-secure-store';
 
-// Default theme (Venta Black / Gold & Black)
-const defaultTheme = {
-  name: 'Gold & Black',
+// Dark theme (Venta Black / Gold & Black)
+const darkTheme = {
+  name: 'Dark',
+  isDark: true,
   colors: {
     primary: '#d4af37',
     primaryHover: '#c9a42e',
@@ -26,83 +27,89 @@ const defaultTheme = {
     sellColor: '#ff4444',
     profitColor: '#22c55e',
     lossColor: '#ff4444',
-    tabBarBg: '#121212',
+    tabBarBg: '#000000',
     cardBg: '#121212',
   }
 };
 
+// Light theme (Pearl White)
+const lightTheme = {
+  name: 'Light',
+  isDark: false,
+  colors: {
+    primary: '#d4af37',
+    primaryHover: '#c9a42e',
+    secondary: '#fbbf24',
+    accent: '#d4af37',
+    bgPrimary: '#f5f5f5',
+    bgSecondary: '#ffffff',
+    bgCard: '#ffffff',
+    bgHover: '#e8e8e8',
+    textPrimary: '#1a1a1a',
+    textSecondary: '#666666',
+    textMuted: '#888888',
+    border: '#e0e0e0',
+    borderLight: '#f0f0f0',
+    success: '#22c55e',
+    error: '#ff4444',
+    warning: '#fbbf24',
+    info: '#3b82f6',
+    buyColor: '#3b82f6',
+    sellColor: '#ff4444',
+    profitColor: '#22c55e',
+    lossColor: '#ff4444',
+    tabBarBg: '#ffffff',
+    cardBg: '#ffffff',
+  }
+};
+
 const ThemeContext = createContext({
-  theme: defaultTheme,
-  colors: defaultTheme.colors,
+  theme: darkTheme,
+  colors: darkTheme.colors,
+  isDark: true,
+  toggleTheme: () => {},
   loading: true,
-  refreshTheme: () => {},
 });
 
 export const ThemeProvider = ({ children }) => {
-  const [theme, setTheme] = useState(defaultTheme);
+  const [isDark, setIsDark] = useState(true);
   const [loading, setLoading] = useState(true);
 
-  const fetchActiveTheme = async () => {
-    try {
-      const response = await fetch(`${API_URL}/theme/active`);
-      const data = await response.json();
-      
-      if (data.success && data.theme && data.theme.colors) {
-        // Map backend theme colors to mobile-friendly format
-        const adminColors = data.theme.colors;
-        setTheme({
-          name: data.theme.name,
-          colors: {
-            primary: adminColors.primary || defaultTheme.colors.primary,
-            primaryHover: adminColors.primaryHover || defaultTheme.colors.primaryHover,
-            secondary: adminColors.secondary || defaultTheme.colors.secondary,
-            accent: adminColors.accent || defaultTheme.colors.accent,
-            bgPrimary: adminColors.bgPrimary || defaultTheme.colors.bgPrimary,
-            bgSecondary: adminColors.bgSecondary || defaultTheme.colors.bgSecondary,
-            bgCard: adminColors.bgCard || defaultTheme.colors.bgCard,
-            bgHover: adminColors.bgHover || defaultTheme.colors.bgHover,
-            textPrimary: adminColors.textPrimary || defaultTheme.colors.textPrimary,
-            textSecondary: adminColors.textSecondary || defaultTheme.colors.textSecondary,
-            textMuted: adminColors.textMuted || defaultTheme.colors.textMuted,
-            border: adminColors.border || defaultTheme.colors.border,
-            borderLight: adminColors.borderLight || defaultTheme.colors.borderLight,
-            success: adminColors.success || defaultTheme.colors.success,
-            error: adminColors.error || defaultTheme.colors.error,
-            warning: adminColors.warning || defaultTheme.colors.warning,
-            info: adminColors.info || defaultTheme.colors.info,
-            buyColor: adminColors.buyColor || defaultTheme.colors.buyColor,
-            sellColor: adminColors.sellColor || defaultTheme.colors.sellColor,
-            profitColor: adminColors.profitColor || defaultTheme.colors.profitColor,
-            lossColor: adminColors.lossColor || defaultTheme.colors.lossColor,
-            tabBarBg: adminColors.bgCard || defaultTheme.colors.tabBarBg,
-            cardBg: adminColors.bgCard || defaultTheme.colors.cardBg,
-          }
-        });
-      }
-    } catch (error) {
-      console.log('Using default theme - could not fetch from server:', error.message);
-    }
-    setLoading(false);
-  };
-
+  // Load saved theme preference
   useEffect(() => {
-    fetchActiveTheme();
-    
-    // Refresh theme every 5 minutes to catch admin changes
-    const interval = setInterval(fetchActiveTheme, 5 * 60 * 1000);
-    return () => clearInterval(interval);
+    const loadThemePreference = async () => {
+      try {
+        const savedTheme = await SecureStore.getItemAsync('themeMode');
+        if (savedTheme !== null) {
+          setIsDark(savedTheme === 'dark');
+        }
+      } catch (error) {
+        console.log('Error loading theme preference:', error.message);
+      }
+      setLoading(false);
+    };
+    loadThemePreference();
   }, []);
 
-  const refreshTheme = () => {
-    fetchActiveTheme();
+  const toggleTheme = async () => {
+    const newIsDark = !isDark;
+    setIsDark(newIsDark);
+    try {
+      await SecureStore.setItemAsync('themeMode', newIsDark ? 'dark' : 'light');
+    } catch (error) {
+      console.log('Error saving theme preference:', error.message);
+    }
   };
+
+  const theme = isDark ? darkTheme : lightTheme;
 
   return (
     <ThemeContext.Provider value={{ 
       theme, 
       colors: theme.colors, 
+      isDark,
+      toggleTheme,
       loading,
-      refreshTheme 
     }}>
       {children}
     </ThemeContext.Provider>

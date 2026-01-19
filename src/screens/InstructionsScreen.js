@@ -105,7 +105,7 @@ const InstructionsScreen = ({ navigation }) => {
             <Ionicons name="book-outline" size={28} color="#d4af37" />
           </View>
           <View style={styles.welcomeText}>
-            <Text style={styles.welcomeTitle}>Welcome to CoinLytix</Text>
+            <Text style={styles.welcomeTitle}>Welcome to NalmiFX</Text>
             <Text style={styles.welcomeSubtitle}>Learn how to use our platform</Text>
           </View>
         </View>
