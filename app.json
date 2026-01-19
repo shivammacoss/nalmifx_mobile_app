@@ -26,10 +26,16 @@
         "foregroundImage": "./assets/nalmifx.png",
         "backgroundColor": "#000000"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "package": "com.nalmifx.app"
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "cc2c387e-3014-4bda-86d0-7471531f6490"
+      }
     }
   }
 }

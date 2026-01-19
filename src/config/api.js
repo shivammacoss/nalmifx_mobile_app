@@ -1,4 +1,7 @@
 // API Configuration
-const DEV_IP = '192.168.1.45';
+// Production API URL
+export const API_URL = 'https://api.nalmifx.com/api'
 
-export const API_URL = `http://${DEV_IP}:5001/api`;
+// For local development:
+// const DEV_IP = '192.168.1.45'
+// export const API_URL = `http://${DEV_IP}:5001/api`;
