@@ -192,23 +192,6 @@ const LoginScreen = ({ navigation }) => {
           )}
         </TouchableOpacity>
 
-        {/* Divider */}
-        <View style={styles.divider}>
-          <View style={styles.line} />
-          <Text style={styles.dividerText}>OR</Text>
-          <View style={styles.line} />
-        </View>
-
-        {/* Social Login */}
-        <View style={styles.socialContainer}>
-          <TouchableOpacity style={styles.socialButton}>
-            <Ionicons name="logo-google" size={22} color="#fff" />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.socialButton}>
-            <Ionicons name="logo-apple" size={22} color="#fff" />
-          </TouchableOpacity>
-        </View>
-
         {/* Sign Up Link */}
         <View style={styles.signupContainer}>
           <Text style={styles.signupText}>Don't have an account? </Text>

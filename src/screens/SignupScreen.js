@@ -332,23 +332,6 @@ const SignupScreen = ({ navigation }) => {
               )}
             </TouchableOpacity>
 
-            {/* Divider */}
-            <View style={styles.divider}>
-              <View style={styles.line} />
-              <Text style={styles.dividerText}>OR</Text>
-              <View style={styles.line} />
-            </View>
-
-            {/* Social Login */}
-            <View style={styles.socialContainer}>
-              <TouchableOpacity style={styles.socialButton}>
-                <Ionicons name="logo-google" size={22} color="#fff" />
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.socialButton}>
-                <Ionicons name="logo-apple" size={22} color="#fff" />
-              </TouchableOpacity>
-            </View>
-
             {/* Terms */}
             <Text style={styles.terms}>
               By creating an account, you agree to our{' '}

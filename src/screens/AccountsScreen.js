@@ -24,6 +24,8 @@ const AccountsScreen = ({ navigation, route }) => {
   const [showOpenAccountModal, setShowOpenAccountModal] = useState(false);
   const [accountTypes, setAccountTypes] = useState([]);
   const [openingAccount, setOpeningAccount] = useState(false);
+  const [newAccountPin, setNewAccountPin] = useState('');
+  const [selectedAccountType, setSelectedAccountType] = useState(null);
   
   // Transfer states
   const [walletBalance, setWalletBalance] = useState(0);
@@ -335,8 +337,15 @@ const AccountsScreen = ({ navigation, route }) => {
     }
   };
 
-  const openNewAccount = async (accountType) => {
-    if (openingAccount) return;
+  const openNewAccount = async () => {
+    if (openingAccount || !selectedAccountType) return;
+    
+    // Validate PIN
+    if (!newAccountPin || newAccountPin.length !== 4 || !/^\d{4}$/.test(newAccountPin)) {
+      Alert.alert('Error', 'Please enter a valid 4-digit PIN');
+      return;
+    }
+    
     setOpeningAccount(true);
     try {
       const res = await fetch(`${API_URL}/trading-accounts`, {
@@ -344,13 +353,16 @@ const AccountsScreen = ({ navigation, route }) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userId: user._id,
-          accountTypeId: accountType._id
+          accountTypeId: selectedAccountType._id,
+          pin: newAccountPin
         })
       });
       const data = await res.json();
       if (data.success) {
         Alert.alert('Success', `Account ${data.account?.accountId || ''} created successfully!`);
         setShowOpenAccountModal(false);
+        setNewAccountPin('');
+        setSelectedAccountType(null);
         fetchAccounts();
       } else {
         Alert.alert('Error', data.message || 'Failed to create account');
@@ -478,47 +490,92 @@ const AccountsScreen = ({ navigation, route }) => {
       </ScrollView>
 
       {/* Open Account Modal */}
-      <Modal visible={showOpenAccountModal} animationType="slide" transparent onRequestClose={() => setShowOpenAccountModal(false)}>
+      <Modal visible={showOpenAccountModal} animationType="slide" transparent onRequestClose={() => { setShowOpenAccountModal(false); setSelectedAccountType(null); setNewAccountPin(''); }}>
         <View style={styles.modalOverlay}>
-          <TouchableOpacity style={styles.modalBackdrop} onPress={() => setShowOpenAccountModal(false)} />
+          <TouchableOpacity style={styles.modalBackdrop} onPress={() => { setShowOpenAccountModal(false); setSelectedAccountType(null); setNewAccountPin(''); }} />
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Open New Account</Text>
-              <TouchableOpacity onPress={() => setShowOpenAccountModal(false)}>
+              <Text style={styles.modalTitle}>{selectedAccountType ? 'Set Account PIN' : 'Open New Account'}</Text>
+              <TouchableOpacity onPress={() => { setShowOpenAccountModal(false); setSelectedAccountType(null); setNewAccountPin(''); }}>
                 <Ionicons name="close" size={24} color="#666" />
               </TouchableOpacity>
             </View>
-            <ScrollView style={styles.accountTypesList}>
-              {accountTypes.length === 0 ? (
-                <View style={styles.loadingTypes}>
-                  <ActivityIndicator size="small" color="#d4af37" />
-                  <Text style={styles.loadingText}>Loading account types...</Text>
+            
+            {selectedAccountType ? (
+              <View style={styles.pinSetupContainer}>
+                <View style={styles.selectedTypeInfo}>
+                  <Ionicons name={selectedAccountType.isDemo ? "flask" : "briefcase"} size={24} color="#d4af37" />
+                  <Text style={styles.selectedTypeName}>{selectedAccountType.name}</Text>
                 </View>
-              ) : (
-                accountTypes.map(type => (
+                
+                <Text style={styles.pinDescription}>Create a 4-digit PIN for this trading account. You'll need this PIN for withdrawals and transfers.</Text>
+                
+                <View style={styles.pinInputContainer}>
+                  <Text style={styles.pinLabel}>Enter 4-digit PIN</Text>
+                  <TextInput
+                    style={styles.pinInput}
+                    value={newAccountPin}
+                    onChangeText={setNewAccountPin}
+                    keyboardType="number-pad"
+                    maxLength={4}
+                    secureTextEntry
+                    placeholder="••••"
+                    placeholderTextColor="#666"
+                  />
+                </View>
+                
+                <View style={styles.pinButtonsRow}>
                   <TouchableOpacity 
-                    key={type._id}
-                    style={styles.accountTypeItem}
-                    onPress={() => openNewAccount(type)}
+                    style={styles.backToTypesBtn}
+                    onPress={() => { setSelectedAccountType(null); setNewAccountPin(''); }}
+                  >
+                    <Text style={styles.backToTypesBtnText}>Back</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={[styles.createAccountBtn, openingAccount && styles.buttonDisabled]}
+                    onPress={openNewAccount}
                     disabled={openingAccount}
                   >
-                    <View style={styles.accountTypeIcon}>
-                      <Ionicons name={type.isDemo ? "flask" : "briefcase"} size={24} color="#d4af37" />
-                    </View>
-                    <View style={styles.accountTypeInfo}>
-                      <Text style={styles.accountTypeName}>{type.name}</Text>
-                      <Text style={styles.accountTypeDesc}>{type.description || 'Standard trading account'}</Text>
-                      <View style={styles.accountTypeDetails}>
-                        <Text style={styles.accountTypeDetail}>Min: ${type.minDeposit || 0}</Text>
-                        <Text style={styles.accountTypeDetail}>Leverage: {type.leverage || '1:100'}</Text>
-                        {type.isDemo && <Text style={[styles.accountTypeDetail, {color: '#d4af37'}]}>Demo</Text>}
-                      </View>
-                    </View>
-                    <Ionicons name="chevron-forward" size={20} color="#666" />
+                    {openingAccount ? (
+                      <ActivityIndicator size="small" color="#000" />
+                    ) : (
+                      <Text style={styles.createAccountBtnText}>Create Account</Text>
+                    )}
                   </TouchableOpacity>
-                ))
-              )}
-            </ScrollView>
+                </View>
+              </View>
+            ) : (
+              <ScrollView style={styles.accountTypesList}>
+                {accountTypes.length === 0 ? (
+                  <View style={styles.loadingTypes}>
+                    <ActivityIndicator size="small" color="#d4af37" />
+                    <Text style={styles.loadingText}>Loading account types...</Text>
+                  </View>
+                ) : (
+                  accountTypes.map(type => (
+                    <TouchableOpacity 
+                      key={type._id}
+                      style={styles.accountTypeItem}
+                      onPress={() => setSelectedAccountType(type)}
+                    >
+                      <View style={styles.accountTypeIcon}>
+                        <Ionicons name={type.isDemo ? "flask" : "briefcase"} size={24} color="#d4af37" />
+                      </View>
+                      <View style={styles.accountTypeInfo}>
+                        <Text style={styles.accountTypeName}>{type.name}</Text>
+                        <Text style={styles.accountTypeDesc}>{type.description || 'Standard trading account'}</Text>
+                        <View style={styles.accountTypeDetails}>
+                          <Text style={styles.accountTypeDetail}>Min: ${type.minDeposit || 0}</Text>
+                          <Text style={styles.accountTypeDetail}>Leverage: {type.leverage || '1:100'}</Text>
+                          {type.isDemo && <Text style={[styles.accountTypeDetail, {color: '#d4af37'}]}>Demo</Text>}
+                        </View>
+                      </View>
+                      <Ionicons name="chevron-forward" size={20} color="#666" />
+                    </TouchableOpacity>
+                  ))
+                )}
+              </ScrollView>
+            )}
           </View>
         </View>
       </Modal>
@@ -975,6 +1032,23 @@ const styles = StyleSheet.create({
     fontSize: 11,
   },
   // PIN Modal Styles
+  pinSetupContainer: {
+    padding: 16,
+  },
+  selectedTypeInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#1a1a1a',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 20,
+  },
+  selectedTypeName: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
   pinModalContent: {
     backgroundColor: '#000000',
     borderTopLeftRadius: 24,
@@ -988,7 +1062,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   pinInputContainer: {
-    marginBottom: 16,
+    marginBottom: 24,
   },
   pinLabel: {
     color: '#888',
@@ -996,9 +1070,9 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   pinInput: {
-    backgroundColor: '#000000',
+    backgroundColor: '#1a1a1a',
     borderWidth: 1,
-    borderColor: '#000000',
+    borderColor: '#333',
     borderRadius: 12,
     padding: 16,
     color: '#fff',
@@ -1007,12 +1081,31 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     letterSpacing: 8,
   },
+  pinButtonsRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  backToTypesBtn: {
+    flex: 1,
+    backgroundColor: '#333',
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  backToTypesBtnText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  buttonDisabled: {
+    opacity: 0.6,
+  },
   createAccountBtn: {
+    flex: 1,
     backgroundColor: '#d4af37',
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
-    marginTop: 8,
   },
   createAccountBtnText: {
     color: '#000',
