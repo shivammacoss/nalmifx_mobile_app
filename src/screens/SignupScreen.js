@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
+import { Image } from 'react-native';
 import { API_URL } from '../config';
 
 const { width, height } = Dimensions.get('window');
@@ -77,10 +78,12 @@ const SignupScreen = ({ navigation }) => {
       >
         {/* Logo */}
         <View style={styles.logoContainer}>
-          <View style={styles.logo}>
-            <Text style={styles.logoText}>⟨X</Text>
-          </View>
-          <Text style={styles.brandName}>ForexPro</Text>
+          <Image 
+            source={require('../../assets/nalmifx.png')} 
+            style={styles.logoImage}
+            resizeMode="contain"
+          />
+          <Text style={styles.brandName}>NalmiFX</Text>
         </View>
 
         {/* Tab Switcher */}
@@ -226,6 +229,11 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  logoImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 16,
   },
   logoText: {
     color: '#000',
