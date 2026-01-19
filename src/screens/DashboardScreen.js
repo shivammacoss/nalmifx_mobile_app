@@ -1,71 +1,210 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  RefreshControl,
+  ActivityIndicator,
+  Linking,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import { API_URL } from '../config';
 
 const DashboardScreen = () => {
-  const topAssets = [
-    { name: 'Latest Batch', value: '$593,513.7', change: '+7%' },
-    { name: 'Average Block Time', value: '$324,212.7', change: '-5%' },
-    { name: 'Total Trxns', value: '$2134,121.7', change: '+7%' },
+  const navigation = useNavigation();
+  const [refreshing, setRefreshing] = useState(false);
+  const [marketWatchNews, setMarketWatchNews] = useState([]);
+  const [loadingNews, setLoadingNews] = useState(true);
+  const refreshIntervalRef = useRef(null);
+
+  // Fetch MarketWatch news from backend
+  const fetchMarketWatchNews = async () => {
+    try {
+      const response = await fetch(`${API_URL}/news/marketwatch`);
+      const data = await response.json();
+      
+      if (data.success && data.news) {
+        setMarketWatchNews(data.news);
+      }
+    } catch (e) {
+      console.error('Error fetching MarketWatch news:', e);
+      // Fallback to RSS feed parsing
+      try {
+        const rssResponse = await fetch('https://feeds.content.dowjones.io/public/rss/mw_topstories');
+        const rssText = await rssResponse.text();
+        const items = parseRSSFeed(rssText);
+        setMarketWatchNews(items);
+      } catch (rssError) {
+        console.error('RSS fallback failed:', rssError);
+        // Use placeholder data
+        setMarketWatchNews([
+          { id: '1', title: 'Markets Update: Loading latest news...', source: 'MarketWatch', time: 'Just now', category: 'Markets', url: 'https://www.marketwatch.com' },
+        ]);
+      }
+    } finally {
+      setLoadingNews(false);
+    }
+  };
+
+  // Parse RSS feed
+  const parseRSSFeed = (xmlText) => {
+    const items = [];
+    const itemMatches = xmlText.match(/<item>([\s\S]*?)<\/item>/g) || [];
+    
+    itemMatches.slice(0, 50).forEach((item, index) => {
+      const titleMatch = item.match(/<title><!\[CDATA\[(.*?)\]\]><\/title>/) || item.match(/<title>(.*?)<\/title>/);
+      const linkMatch = item.match(/<link>(.*?)<\/link>/);
+      const pubDateMatch = item.match(/<pubDate>(.*?)<\/pubDate>/);
+      const categoryMatch = item.match(/<category>(.*?)<\/category>/);
+      
+      if (titleMatch) {
+        items.push({
+          id: `mw-${index}`,
+          title: titleMatch[1].replace(/<!\[CDATA\[|\]\]>/g, '').trim(),
+          url: linkMatch ? linkMatch[1] : 'https://www.marketwatch.com',
+          time: pubDateMatch ? formatTimeAgo(pubDateMatch[1]) : '',
+          category: categoryMatch ? categoryMatch[1] : 'Markets',
+          source: 'MarketWatch'
+        });
+      }
+    });
+    
+    return items;
+  };
+
+  const formatTimeAgo = (datetime) => {
+    if (!datetime) return '';
+    const now = new Date();
+    const date = new Date(datetime);
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+    
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    return `${diffDays}d ago`;
+  };
+
+  // Initial fetch and set up auto-refresh every 30 seconds
+  useEffect(() => {
+    fetchMarketWatchNews();
+    
+    refreshIntervalRef.current = setInterval(() => {
+      fetchMarketWatchNews();
+    }, 30000); // Refresh every 30 seconds
+    
+    return () => {
+      if (refreshIntervalRef.current) {
+        clearInterval(refreshIntervalRef.current);
+      }
+    };
+  }, []);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchMarketWatchNews();
+    setRefreshing(false);
+  };
+
+  const openNewsUrl = (url) => {
+    if (url) {
+      Linking.openURL(url);
+    }
+  };
+
+  const getImpactColor = (impact) => {
+    switch (impact) {
+      case 'high': return '#d4af37';
+      case 'medium': return '#d4af37';
+      case 'low': return '#d4af37';
+      default: return '#666';
+    }
+  };
+
+  const quickActions = [
+    { id: 'accounts', icon: 'wallet-outline', label: 'Accounts', screen: 'Accounts', color: '#d4af37' },
+    { id: 'wallet', icon: 'card-outline', label: 'Wallet', screen: 'Wallet', color: '#d4af37' },
+    { id: 'copy', icon: 'copy-outline', label: 'Copy Trade', screen: 'CopyTrading', color: '#d4af37' },
+    { id: 'ib', icon: 'people-outline', label: 'IB Program', screen: 'IB', color: '#d4af37' },
   ];
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.logo}>⟨X CoinLytix</Text>
-        <TouchableOpacity style={styles.walletButton}>
-          <Text style={styles.walletText}>Connect Wallet</Text>
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.highlightCard}>
-        <Text style={styles.highlightTitle}>Professional Highlights</Text>
-        <Text style={styles.highlightLabel}>Daily Transactions</Text>
-        <Text style={styles.highlightValue}>9323.745k</Text>
-        <View style={styles.statsRow}>
-          <View style={styles.statBadge}>
-            <Text style={styles.statBadgeText}>↘ 3.27%</Text>
-          </View>
-          <Text style={styles.statGreen}>+$782.40</Text>
+    <ScrollView 
+      style={styles.container}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#d4af37" />}
+    >
+      {/* Quick Actions */}
+      <View style={styles.quickActionsSection}>
+        <Text style={styles.sectionTitle}>Quick Actions</Text>
+        <View style={styles.quickActionsGrid}>
+          {quickActions.map(action => (
+            <TouchableOpacity 
+              key={action.id} 
+              style={styles.quickActionCard}
+              onPress={() => navigation.navigate(action.screen)}
+            >
+              <View style={[styles.quickActionIcon, { backgroundColor: action.color + '20' }]}>
+                <Ionicons name={action.icon} size={24} color={action.color} />
+              </View>
+              <Text style={styles.quickActionLabel}>{action.label}</Text>
+            </TouchableOpacity>
+          ))}
         </View>
       </View>
 
-      <Text style={styles.sectionTitle}>Top Assets</Text>
-      <Text style={styles.sectionSubtitle}>Your highest-value crypto</Text>
-
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.assetsScroll}>
-        {topAssets.map((asset, index) => (
-          <View key={index} style={styles.assetCard}>
-            <Text style={styles.assetName}>{asset.name}</Text>
-            <Text style={styles.assetValue}>{asset.value}</Text>
-            <Text style={[styles.assetChange, asset.change.startsWith('+') ? styles.green : styles.red]}>
-              {asset.change}
-            </Text>
+      {/* MarketWatch Real-Time News */}
+      <View style={styles.newsSection}>
+        <View style={styles.newsSectionHeader}>
+          <View style={styles.newsTitleRow}>
+            <Ionicons name="newspaper-outline" size={20} color="#d4af37" />
+            <Text style={styles.sectionTitle}>MarketWatch News</Text>
           </View>
-        ))}
-      </ScrollView>
-
-      <View style={styles.transactionsCard}>
-        <Text style={styles.transactionsTitle}>Latest Transactions</Text>
-        <Text style={styles.transactionsSubtitle}>Real-time blockchain activity</Text>
+          <View style={styles.liveIndicator}>
+            <View style={styles.liveDot} />
+            <Text style={styles.liveText}>LIVE</Text>
+          </View>
+        </View>
         
-        {[1, 2, 3].map((_, index) => (
-          <View key={index} style={styles.transactionItem}>
-            <View style={styles.transactionLeft}>
-              <View style={styles.successBadge}>
-                <Text style={styles.successText}>Success</Text>
-              </View>
-              <Text style={styles.transactionType}>Contract Call</Text>
-            </View>
-            <Text style={styles.transactionValue}>131.35 EDU</Text>
+        {loadingNews ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#d4af37" />
+            <Text style={styles.loadingText}>Loading latest news...</Text>
           </View>
-        ))}
+        ) : (
+          <View style={styles.newsContent}>
+            {marketWatchNews.map((item, index) => (
+              <TouchableOpacity 
+                key={item.id || index} 
+                style={styles.newsItem}
+                onPress={() => openNewsUrl(item.url)}
+                activeOpacity={0.7}
+              >
+                <View style={styles.newsItemHeader}>
+                  <View style={styles.newsCategory}>
+                    <Text style={styles.newsCategoryText}>{item.category || 'Markets'}</Text>
+                  </View>
+                  <Text style={styles.newsTime}>{item.time}</Text>
+                </View>
+                <Text style={styles.newsTitle} numberOfLines={3}>{item.title}</Text>
+                <View style={styles.newsMeta}>
+                  <View style={styles.sourceRow}>
+                    <Ionicons name="globe-outline" size={12} color="#888" />
+                    <Text style={styles.newsSource}>{item.source || 'MarketWatch'}</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={16} color="#666" />
+                </View>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
       </View>
+
+      <View style={{ height: 100 }} />
     </ScrollView>
   );
 };
@@ -73,167 +212,152 @@ const DashboardScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0a0a0a',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
+    backgroundColor: '#000000',
     paddingTop: 50,
-  },
-  logo: {
-    color: '#00d4aa',
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  walletButton: {
-    backgroundColor: '#ff6b35',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 8,
-  },
-  walletText: {
-    color: '#fff',
-    fontWeight: '600',
-    fontSize: 14,
-  },
-  highlightCard: {
-    backgroundColor: '#111',
-    margin: 16,
-    padding: 20,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#222',
-  },
-  highlightTitle: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 16,
-  },
-  highlightLabel: {
-    color: '#666',
-    fontSize: 14,
-  },
-  highlightValue: {
-    color: '#fff',
-    fontSize: 36,
-    fontWeight: '700',
-    marginVertical: 8,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  statBadge: {
-    backgroundColor: 'rgba(0, 212, 170, 0.2)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-  },
-  statBadgeText: {
-    color: '#00d4aa',
-    fontSize: 14,
-  },
-  statGreen: {
-    color: '#00d4aa',
-    fontSize: 14,
   },
   sectionTitle: {
     color: '#fff',
     fontSize: 18,
     fontWeight: '600',
-    marginLeft: 16,
+    marginLeft: 8,
+  },
+  
+  // Quick Actions
+  quickActionsSection: {
+    marginTop: 8,
+    marginHorizontal: 16,
+    marginBottom: 16,
+  },
+  quickActionsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: 12,
+    gap: 12,
+  },
+  quickActionCard: {
+    width: '47%',
+    backgroundColor: '#000000',
+    borderRadius: 16,
+    padding: 20,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#000000',
+  },
+  quickActionIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  quickActionLabel: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  
+  // News Section
+  newsSection: {
+    flex: 1,
     marginTop: 8,
   },
-  sectionSubtitle: {
-    color: '#666',
-    fontSize: 14,
-    marginLeft: 16,
-    marginBottom: 16,
-  },
-  assetsScroll: {
-    paddingLeft: 16,
-  },
-  assetCard: {
-    backgroundColor: '#111',
-    padding: 16,
-    borderRadius: 12,
-    marginRight: 12,
-    width: 160,
-    borderWidth: 1,
-    borderColor: '#222',
-  },
-  assetName: {
-    color: '#fff',
-    fontSize: 14,
-    marginBottom: 8,
-  },
-  assetValue: {
-    color: '#fff',
-    fontSize: 20,
-    fontWeight: '600',
-  },
-  assetChange: {
-    fontSize: 12,
-    marginTop: 4,
-  },
-  green: {
-    color: '#00d4aa',
-  },
-  red: {
-    color: '#ff6b6b',
-  },
-  transactionsCard: {
-    backgroundColor: '#111',
-    margin: 16,
-    padding: 20,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#222',
-  },
-  transactionsTitle: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  transactionsSubtitle: {
-    color: '#666',
-    fontSize: 12,
-    marginBottom: 16,
-  },
-  transactionItem: {
+  newsSectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#222',
+    marginHorizontal: 16,
+    marginBottom: 12,
   },
-  transactionLeft: {
+  newsTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
   },
-  successBadge: {
-    backgroundColor: 'rgba(0, 212, 170, 0.2)',
+  liveIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ef444420',
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 4,
+    borderRadius: 12,
   },
-  successText: {
-    color: '#00d4aa',
+  liveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#ef4444',
+    marginRight: 4,
+  },
+  liveText: {
+    color: '#ef4444',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  loadingText: {
+    color: '#666',
+    fontSize: 14,
+    marginTop: 12,
+  },
+  
+  // Market News
+  newsContent: {
+    marginHorizontal: 16,
+  },
+  newsItem: {
+    backgroundColor: '#111',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#222',
+  },
+  newsItemHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  newsCategory: {
+    backgroundColor: '#d4af3720',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  newsCategoryText: {
+    color: '#d4af37',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  newsTitle: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '500',
+    lineHeight: 22,
+    marginBottom: 10,
+  },
+  newsMeta: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  sourceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  newsSource: {
+    color: '#888',
     fontSize: 12,
   },
-  transactionType: {
-    color: '#fff',
-    fontSize: 14,
-  },
-  transactionValue: {
-    color: '#fff',
-    fontSize: 14,
+  newsTime: {
+    color: '#666',
+    fontSize: 11,
   },
 });
 
