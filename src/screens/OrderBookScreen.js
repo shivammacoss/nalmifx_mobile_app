@@ -179,11 +179,18 @@ const OrderBookScreen = ({ navigation }) => {
           onPress: async () => {
             try {
               const prices = livePrices[trade.symbol];
-              const closePrice = trade.side === 'BUY' ? prices?.bid : prices?.ask;
-              const res = await fetch(`${API_URL}/trade/close/${trade._id}`, {
+              if (!prices?.bid || !prices?.ask) {
+                Alert.alert('Error', 'Price not available');
+                return;
+              }
+              const res = await fetch(`${API_URL}/trade/close`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ closePrice })
+                body: JSON.stringify({ 
+                  tradeId: trade._id,
+                  bid: prices.bid,
+                  ask: prices.ask
+                })
               });
               const data = await res.json();
               if (data.success) {
@@ -193,7 +200,8 @@ const OrderBookScreen = ({ navigation }) => {
                 Alert.alert('Error', data.message || 'Failed to close trade');
               }
             } catch (e) {
-              Alert.alert('Error', 'Network error');
+              console.error('Close trade error:', e);
+              Alert.alert('Error', 'Network error - please check your connection');
             }
           }
         }

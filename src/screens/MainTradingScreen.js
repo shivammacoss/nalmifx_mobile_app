@@ -114,7 +114,7 @@ const toastStyles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 8,
   },
-  toastContent: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  toastContent: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   toastText: { color: '#fff', fontSize: 15, fontWeight: '600', flex: 1 },
 });
 
@@ -713,47 +713,82 @@ const HomeTab = ({ navigation }) => {
           </View>
         </View>
         
-        <View style={[styles.marketWatchNewsContainer, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
-          <WebView
-            source={{ uri: 'https://www.marketwatch.com/latest-news?mod=top_nav' }}
-            style={styles.marketWatchWebView}
-            scrollEnabled={true}
-            nestedScrollEnabled={true}
-            javaScriptEnabled={true}
-            domStorageEnabled={true}
-            startInLoadingState={true}
-            injectedJavaScript={`
-              (function() {
-                // Hide header, footer, ads for cleaner view
-                const style = document.createElement('style');
-                style.textContent = \`
-                  header, footer, .ad, .advertisement, nav, .site-header, .site-footer,
-                  .sticky-header, .banner, [data-track-module="MW_Header"],
-                  .region--aside, .element--ad { display: none !important; }
-                  body { background: ${isDark ? '#000' : '#fff'} !important; padding-top: 0 !important; }
-                  .container { padding: 10px !important; }
-                  .article__headline { font-size: 14px !important; }
-                \`;
-                document.head.appendChild(style);
-                window.scrollTo(0, 0);
-              })();
-              true;
-            `}
-            onShouldStartLoadWithRequest={(request) => {
-              // Open external links in browser
-              if (request.url.includes('marketwatch.com')) {
-                return true;
-              }
-              Linking.openURL(request.url);
-              return false;
-            }}
-            renderLoading={() => (
-              <View style={styles.newsLoadingContainer}>
-                <ActivityIndicator size="small" color={colors.primary} />
-                <Text style={[styles.newsLoadingText, { color: colors.textMuted }]}>Loading MarketWatch...</Text>
+        {/* News Cards - Vertical */}
+        <View style={styles.newsCardsVertical}>
+          {[
+            {
+              id: 1,
+              category: 'Markets',
+              title: 'Fed signals potential rate cuts amid cooling inflation data',
+              description: 'Federal Reserve officials hint at possible monetary policy easing as inflation shows signs of moderating...',
+              time: '5m ago',
+              image: 'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=400',
+            },
+            {
+              id: 2,
+              category: 'Crypto',
+              title: 'Bitcoin surges past key resistance as institutional buying accelerates',
+              description: 'Major cryptocurrency rallies as large investors increase positions ahead of halving event...',
+              time: '12m ago',
+              image: 'https://images.unsplash.com/photo-1518546305927-5a555bb7020d?w=400',
+            },
+            {
+              id: 3,
+              category: 'Forex',
+              title: 'EUR/USD volatility spikes on ECB policy divergence',
+              description: 'Euro faces pressure as European Central Bank maintains hawkish stance while Fed pivots...',
+              time: '28m ago',
+              image: 'https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?w=400',
+            },
+            {
+              id: 4,
+              category: 'Commodities',
+              title: 'Gold hits new highs as safe-haven demand increases',
+              description: 'Precious metal reaches record levels amid geopolitical tensions and dollar weakness...',
+              time: '45m ago',
+              image: 'https://images.unsplash.com/photo-1610375461246-83df859d849d?w=400',
+            },
+            {
+              id: 5,
+              category: 'Markets',
+              title: 'Tech stocks lead market rally on strong earnings',
+              description: 'Major indices climb as technology sector reports better-than-expected quarterly results...',
+              time: '1h ago',
+              image: 'https://images.unsplash.com/photo-1590283603385-17ffb3a7f29f?w=400',
+            },
+          ].map((news) => (
+            <TouchableOpacity 
+              key={news.id}
+              style={[styles.newsCardVertical, { backgroundColor: colors.bgCard }]}
+              onPress={() => Linking.openURL('https://www.marketwatch.com/latest-news')}
+              activeOpacity={0.8}
+            >
+              <Image 
+                source={{ uri: news.image }}
+                style={styles.newsCardImageVertical}
+                resizeMode="cover"
+              />
+              <View style={styles.newsCardContentVertical}>
+                <View style={styles.newsCardMeta}>
+                  <View style={styles.newsCategoryBadge}>
+                    <Text style={styles.newsCategoryText}>{news.category}</Text>
+                  </View>
+                  <Text style={[styles.newsTime, { color: colors.textMuted }]}>{news.time}</Text>
+                </View>
+                <Text style={[styles.newsCardTitle, { color: colors.textPrimary }]} numberOfLines={2}>
+                  {news.title}
+                </Text>
+                <Text style={[styles.newsCardDesc, { color: colors.textMuted }]} numberOfLines={2}>
+                  {news.description}
+                </Text>
+                <View style={styles.newsCardFooter}>
+                  <Ionicons name="globe-outline" size={12} color={colors.textMuted} />
+                  <Text style={[styles.newsSource, { color: colors.textMuted }]}>MarketWatch</Text>
+                  <Ionicons name="chevron-forward" size={14} color={colors.primary} />
+                </View>
               </View>
-            )}
-          />
+            </TouchableOpacity>
+          ))}
         </View>
       </View>
 
@@ -2753,21 +2788,30 @@ const styles = StyleSheet.create({
   liveIndicator: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#ef444420', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 },
   liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#ef4444', marginRight: 4 },
   liveText: { color: '#ef4444', fontSize: 10, fontWeight: '700' },
+  newsCardsContainer: { paddingRight: 16, gap: 12 },
+  newsCardsVertical: { gap: 12 },
+  newsCard: { width: 280, backgroundColor: '#111', borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: '#222' },
+  newsCardVertical: { flexDirection: 'row', backgroundColor: '#111', borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: '#222', marginBottom: 12 },
+  newsCardImage: { width: '100%', height: 180, backgroundColor: '#1a1a1a' },
+  newsCardImageVertical: { width: 140, height: 140, backgroundColor: '#1a1a1a' },
+  newsCardContent: { padding: 14 },
+  newsCardContentVertical: { flex: 1, padding: 14, justifyContent: 'space-between' },
+  newsCardMeta: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  newsCategoryBadge: { backgroundColor: '#d4af3720', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 },
+  newsCategoryText: { color: '#d4af37', fontSize: 11, fontWeight: '600' },
+  newsTime: { color: '#666', fontSize: 11 },
+  newsCardTitle: { color: '#fff', fontSize: 14, fontWeight: '600', lineHeight: 20, marginBottom: 6 },
+  newsCardDesc: { color: '#888', fontSize: 12, lineHeight: 17, marginBottom: 10 },
+  newsCardFooter: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  newsSource: { color: '#888', fontSize: 11, flex: 1 },
   newsLoadingContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 30, gap: 10 },
   newsLoadingText: { color: '#666', fontSize: 14 },
   marketWatchNewsContainer: { height: 450, borderRadius: 16, overflow: 'hidden', borderWidth: 1 },
   marketWatchWebView: { flex: 1, backgroundColor: 'transparent' },
   newsListContainer: { gap: 12 },
-  newsCard: { backgroundColor: '#111', borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: '#222' },
-  newsCardImage: { width: '100%', height: 160, backgroundColor: '#1a1a1a' },
-  newsCardContent: { padding: 14 },
   newsCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  newsCategoryBadge: { backgroundColor: '#d4af3720', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 },
-  newsCategoryText: { color: '#d4af37', fontSize: 11, fontWeight: '600' },
   newsTimeText: { color: '#666', fontSize: 11 },
-  newsCardTitle: { color: '#fff', fontSize: 15, fontWeight: '600', lineHeight: 22, marginBottom: 6 },
   newsCardSummary: { color: '#888', fontSize: 13, lineHeight: 18, marginBottom: 10 },
-  newsCardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   newsSourceRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   newsSourceText: { color: '#888', fontSize: 12 },
   
