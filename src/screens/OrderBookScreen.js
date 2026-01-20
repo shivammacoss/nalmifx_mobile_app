@@ -99,35 +99,35 @@ const OrderBookScreen = ({ navigation }) => {
         ? accounts 
         : accounts.filter(a => a._id === selectedAccount);
 
-      let allOpen = [];
-      let allClosed = [];
-      let allPending = [];
+      // Fetch all data in parallel for each account
+      const fetchPromises = accountsToFetch.map(async (account) => {
+        const [openRes, historyRes, pendingRes] = await Promise.all([
+          fetch(`${API_URL}/trade/open/${account._id}`),
+          fetch(`${API_URL}/trade/history/${account._id}?limit=20`),
+          fetch(`${API_URL}/trade/pending/${account._id}`)
+        ]);
 
-      for (const account of accountsToFetch) {
-        // Fetch open trades
-        const openRes = await fetch(`${API_URL}/trade/open/${account._id}`);
-        const openData = await openRes.json();
-        if (openData.success && openData.trades) {
-          allOpen = [...allOpen, ...openData.trades.map(t => ({ ...t, accountName: account.accountId }))];
-        }
+        const [openData, historyData, pendingData] = await Promise.all([
+          openRes.json(),
+          historyRes.json(),
+          pendingRes.json()
+        ]);
 
-        // Fetch closed trades (history)
-        const historyRes = await fetch(`${API_URL}/trade/history/${account._id}?limit=50`);
-        const historyData = await historyRes.json();
-        if (historyData.success && historyData.trades) {
-          allClosed = [...allClosed, ...historyData.trades.map(t => ({ ...t, accountName: account.accountId }))];
-        }
+        return {
+          open: openData.success && openData.trades ? openData.trades.map(t => ({ ...t, accountName: account.accountId })) : [],
+          closed: historyData.success && historyData.trades ? historyData.trades.map(t => ({ ...t, accountName: account.accountId })) : [],
+          pending: pendingData.success && pendingData.trades ? pendingData.trades.map(o => ({ ...o, accountName: account.accountId })) : []
+        };
+      });
 
-        // Fetch pending orders
-        const pendingRes = await fetch(`${API_URL}/trade/pending/${account._id}`);
-        const pendingData = await pendingRes.json();
-        if (pendingData.success && pendingData.trades) {
-          allPending = [...allPending, ...pendingData.trades.map(o => ({ ...o, accountName: account.accountId }))];
-        }
-      }
+      const results = await Promise.all(fetchPromises);
+      
+      const allOpen = results.flatMap(r => r.open);
+      const allClosed = results.flatMap(r => r.closed).sort((a, b) => new Date(b.closedAt) - new Date(a.closedAt));
+      const allPending = results.flatMap(r => r.pending);
 
       setOpenTrades(allOpen);
-      setClosedTrades(allClosed.sort((a, b) => new Date(b.closedAt) - new Date(a.closedAt)));
+      setClosedTrades(allClosed);
       setPendingOrders(allPending);
     } catch (e) {
       console.error('Error fetching trades:', e);
@@ -279,7 +279,7 @@ const OrderBookScreen = ({ navigation }) => {
           </View>
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>P/L</Text>
-            <Text style={[styles.detailValue, { color: pnl >= 0 ? '#d4af37' : '#d4af37', fontWeight: '600' }]}>
+            <Text style={[styles.detailValue, { color: pnl >= 0 ? '#22c55e' : '#ef4444', fontWeight: '600' }]}>
               ${pnl.toFixed(2)}
             </Text>
           </View>
@@ -356,7 +356,7 @@ const OrderBookScreen = ({ navigation }) => {
         </View>
         <View style={styles.detailRow}>
           <Text style={styles.detailLabel}>P/L</Text>
-          <Text style={[styles.detailValue, { color: (trade.realizedPnl || 0) >= 0 ? '#d4af37' : '#d4af37', fontWeight: '600' }]}>
+          <Text style={[styles.detailValue, { color: (trade.realizedPnl || 0) >= 0 ? '#22c55e' : '#ef4444', fontWeight: '600' }]}>
             ${(trade.realizedPnl || 0).toFixed(2)}
           </Text>
         </View>
@@ -451,7 +451,7 @@ const OrderBookScreen = ({ navigation }) => {
       {activeTab === 'positions' && openTrades.length > 0 && (
         <View style={styles.summaryBar}>
           <Text style={styles.summaryLabel}>Total Floating P/L:</Text>
-          <Text style={[styles.summaryValue, { color: getTotalPnl() >= 0 ? '#d4af37' : '#d4af37' }]}>
+          <Text style={[styles.summaryValue, { color: getTotalPnl() >= 0 ? '#22c55e' : '#ef4444' }]}>
             ${getTotalPnl().toFixed(2)}
           </Text>
         </View>

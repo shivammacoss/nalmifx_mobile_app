@@ -558,13 +558,19 @@ const TradingProvider = ({ children, navigation }) => {
     navigation.replace('Login');
   };
 
+  const refreshAccounts = async () => {
+    if (user) {
+      await fetchAccounts(user._id);
+    }
+  };
+
   return (
     <TradingContext.Provider value={{
       user, accounts, selectedAccount, setSelectedAccount,
       openTrades, pendingOrders, tradeHistory, instruments, livePrices, adminSpreads,
       loading, accountSummary, totalFloatingPnl, realTimeEquity, realTimeFreeMargin,
       fetchOpenTrades, fetchPendingOrders, fetchTradeHistory, fetchAccountSummary,
-      calculatePnl, logout, setInstruments,
+      refreshAccounts, calculatePnl, logout, setInstruments,
       marketWatchNews, loadingNews, fetchMarketWatchNews,
       navigation
     }}>
@@ -580,8 +586,19 @@ const HomeTab = ({ navigation }) => {
   const parentNav = navigation.getParent();
   const [refreshing, setRefreshing] = useState(false);
 
+  // Refresh accounts when screen gains focus (e.g., after creating new account)
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      if (ctx.refreshAccounts) {
+        ctx.refreshAccounts();
+      }
+    });
+    return unsubscribe;
+  }, [navigation, ctx.refreshAccounts]);
+
   const onRefresh = async () => {
     setRefreshing(true);
+    await ctx.refreshAccounts();
     await ctx.fetchAccountSummary();
     await ctx.fetchOpenTrades();
     setRefreshing(false);
@@ -630,7 +647,7 @@ const HomeTab = ({ navigation }) => {
             </View>
             <View style={{ alignItems: 'flex-end' }}>
               <Text style={styles.balanceLabel}>Equity</Text>
-              <Text style={[styles.equityValue, { color: ctx.totalFloatingPnl >= 0 ? '#d4af37' : '#d4af37' }]}>
+              <Text style={[styles.equityValue, { color: ctx.totalFloatingPnl >= 0 ? '#22c55e' : '#ef4444' }]}>
                 ${ctx.realTimeEquity?.toFixed(2) || '0.00'}
               </Text>
             </View>
@@ -640,7 +657,7 @@ const HomeTab = ({ navigation }) => {
           <View style={styles.pnlRow}>
             <View>
               <Text style={styles.balanceLabel}>Floating P&L</Text>
-              <Text style={[styles.pnlValue, { color: ctx.totalFloatingPnl >= 0 ? '#d4af37' : '#d4af37' }]}>
+              <Text style={[styles.pnlValue, { color: ctx.totalFloatingPnl >= 0 ? '#22c55e' : '#ef4444' }]}>
                 {ctx.totalFloatingPnl >= 0 ? '+' : ''}${ctx.totalFloatingPnl?.toFixed(2) || '0.00'}
               </Text>
             </View>
@@ -800,6 +817,7 @@ const HomeTab = ({ navigation }) => {
 const QuotesTab = ({ navigation }) => {
   const ctx = React.useContext(TradingContext);
   const toast = useToast();
+  const orderScrollRef = useRef(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState('watchlist');
   const [expandedSegment, setExpandedSegment] = useState(null);
@@ -809,6 +827,7 @@ const QuotesTab = ({ navigation }) => {
   const [orderType, setOrderType] = useState('MARKET');
   const [pendingType, setPendingType] = useState('LIMIT');
   const [volume, setVolume] = useState(0.01);
+  const [volumeText, setVolumeText] = useState('0.01');
   const [pendingPrice, setPendingPrice] = useState('');
   const [stopLoss, setStopLoss] = useState('');
   const [takeProfit, setTakeProfit] = useState('');
@@ -1098,13 +1117,23 @@ const QuotesTab = ({ navigation }) => {
 
       {/* Order Panel Slide Up - Full Order Types */}
       <Modal visible={showOrderPanel} animationType="slide" transparent>
-        <View style={styles.orderModalOverlay}>
+        <KeyboardAvoidingView 
+          style={styles.orderModalOverlay} 
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={0}
+        >
           <TouchableOpacity 
             style={styles.orderPanelBackdrop} 
             activeOpacity={1} 
             onPress={() => setShowOrderPanel(false)}
           />
-          <ScrollView style={styles.orderPanelScroll} bounces={false}>
+          <ScrollView 
+            ref={orderScrollRef}
+            style={styles.orderPanelScroll} 
+            bounces={false}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
             <View style={styles.orderPanelContainer}>
               {/* Handle Bar */}
               <View style={styles.orderPanelHandle} />
@@ -1225,19 +1254,49 @@ const QuotesTab = ({ navigation }) => {
                 <View style={styles.volumeControlRow}>
                   <TouchableOpacity 
                     style={styles.volumeControlBtn} 
-                    onPress={() => setVolume(Math.max(0.01, volume - 0.01))}
+                    onPress={() => {
+                      const newVol = Math.max(0.01, volume - 0.01);
+                      setVolume(newVol);
+                      setVolumeText(newVol.toFixed(2));
+                    }}
                   >
                     <Ionicons name="remove" size={18} color="#fff" />
                   </TouchableOpacity>
                   <TextInput
                     style={styles.volumeInputField}
-                    value={volume.toFixed(2)}
-                    onChangeText={(t) => setVolume(parseFloat(t) || 0.01)}
+                    value={volumeText}
+                    onChangeText={(text) => {
+                      // Allow empty, numbers, and decimal point
+                      if (text === '' || /^\d*\.?\d*$/.test(text)) {
+                        setVolumeText(text);
+                      }
+                    }}
+                    onFocus={() => {
+                      // Scroll to make input visible above keyboard
+                      setTimeout(() => {
+                        orderScrollRef.current?.scrollTo({ y: 200, animated: true });
+                      }, 300);
+                    }}
+                    onBlur={() => {
+                      const val = parseFloat(volumeText);
+                      if (isNaN(val) || val <= 0) {
+                        setVolumeText('0.01');
+                        setVolume(0.01);
+                      } else {
+                        setVolume(val);
+                        setVolumeText(val.toFixed(2));
+                      }
+                    }}
                     keyboardType="decimal-pad"
+                    selectTextOnFocus={true}
                   />
                   <TouchableOpacity 
                     style={styles.volumeControlBtn} 
-                    onPress={() => setVolume(volume + 0.01)}
+                    onPress={() => {
+                      const newVol = volume + 0.01;
+                      setVolume(newVol);
+                      setVolumeText(newVol.toFixed(2));
+                    }}
                   >
                     <Ionicons name="add" size={18} color="#fff" />
                   </TouchableOpacity>
@@ -1256,6 +1315,11 @@ const QuotesTab = ({ navigation }) => {
                     placeholderTextColor="#666"
                     keyboardType="decimal-pad"
                     selectionColor="#d4af37"
+                    onFocus={() => {
+                      setTimeout(() => {
+                        orderScrollRef.current?.scrollToEnd({ animated: true });
+                      }, 300);
+                    }}
                   />
                 </View>
                 <View style={styles.slTpCol}>
@@ -1268,6 +1332,11 @@ const QuotesTab = ({ navigation }) => {
                     placeholderTextColor="#666"
                     keyboardType="decimal-pad"
                     selectionColor="#d4af37"
+                    onFocus={() => {
+                      setTimeout(() => {
+                        orderScrollRef.current?.scrollToEnd({ animated: true });
+                      }, 300);
+                    }}
                   />
                 </View>
               </View>
@@ -1295,7 +1364,7 @@ const QuotesTab = ({ navigation }) => {
               </View>
             </View>
           </ScrollView>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Account Picker Modal */}
@@ -1579,7 +1648,7 @@ const TradeTab = () => {
         </View>
         <View style={styles.summaryRow}>
           <Text style={styles.summaryLabel}>Equity</Text>
-          <Text style={[styles.summaryValue, { color: ctx.totalFloatingPnl >= 0 ? '#fff' : '#d4af37' }]}>
+          <Text style={[styles.summaryValue, { color: ctx.totalFloatingPnl >= 0 ? '#22c55e' : '#ef4444' }]}>
             {ctx.realTimeEquity.toFixed(2)}
           </Text>
         </View>
@@ -1599,7 +1668,7 @@ const TradeTab = () => {
         </View>
         <View style={styles.summaryRow}>
           <Text style={styles.summaryLabel}>Floating PL</Text>
-          <Text style={[styles.summaryValue, { color: ctx.totalFloatingPnl >= 0 ? '#d4af37' : '#d4af37' }]}>
+          <Text style={[styles.summaryValue, { color: ctx.totalFloatingPnl >= 0 ? '#22c55e' : '#ef4444' }]}>
             {ctx.totalFloatingPnl.toFixed(2)}
           </Text>
         </View>
@@ -1691,7 +1760,7 @@ const TradeTab = () => {
                         </TouchableOpacity>
                       </View>
                       <View style={styles.positionPnlCol}>
-                        <Text style={[styles.positionPnl, { color: pnl >= 0 ? '#d4af37' : '#d4af37' }]}>
+                        <Text style={[styles.positionPnl, { color: pnl >= 0 ? '#22c55e' : '#ef4444' }]}>
                           ${pnl >= 0 ? '' : '-'}{Math.abs(pnl).toFixed(2)}
                         </Text>
                         <Text style={styles.currentPriceText}>{currentPrice?.toFixed(5) || '-'}</Text>
@@ -1765,7 +1834,7 @@ const TradeTab = () => {
                       </View>
                     )}
                   </View>
-                  <Text style={[styles.historyPnl, { color: (trade.realizedPnl || 0) >= 0 ? '#d4af37' : '#d4af37' }]}>
+                  <Text style={[styles.historyPnl, { color: (trade.realizedPnl || 0) >= 0 ? '#22c55e' : '#ef4444' }]}>
                     {(trade.realizedPnl || 0) >= 0 ? '+' : ''}${(trade.realizedPnl || 0).toFixed(2)}
                   </Text>
                 </View>
@@ -1966,7 +2035,7 @@ const TradeTab = () => {
                   <Text style={styles.detailSectionTitle}>Profit & Loss</Text>
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>Floating P&L</Text>
-                    <Text style={[styles.detailValue, { color: ctx.calculatePnl(detailTrade) >= 0 ? '#d4af37' : '#d4af37', fontWeight: 'bold' }]}>
+                    <Text style={[styles.detailValue, { color: ctx.calculatePnl(detailTrade) >= 0 ? '#22c55e' : '#ef4444', fontWeight: 'bold' }]}>
                       ${ctx.calculatePnl(detailTrade).toFixed(2)}
                     </Text>
                   </View>
@@ -2147,7 +2216,7 @@ const TradeTab = () => {
                   <Text style={styles.detailSectionTitle}>Realized Profit & Loss</Text>
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>Realized P&L</Text>
-                    <Text style={[styles.detailValue, { color: (historyDetailTrade.realizedPnl || 0) >= 0 ? '#d4af37' : '#d4af37', fontWeight: 'bold', fontSize: 18 }]}>
+                    <Text style={[styles.detailValue, { color: (historyDetailTrade.realizedPnl || 0) >= 0 ? '#22c55e' : '#ef4444', fontWeight: 'bold', fontSize: 18 }]}>
                       {(historyDetailTrade.realizedPnl || 0) >= 0 ? '+' : ''}${(historyDetailTrade.realizedPnl || 0).toFixed(2)}
                     </Text>
                   </View>
@@ -2225,7 +2294,7 @@ const HistoryTab = () => {
                 </View>
               )}
             </View>
-            <Text style={[styles.historyPnl, { color: (item.realizedPnl || 0) >= 0 ? '#d4af37' : '#d4af37' }]}>
+            <Text style={[styles.historyPnl, { color: (item.realizedPnl || 0) >= 0 ? '#22c55e' : '#ef4444' }]}>
               {(item.realizedPnl || 0) >= 0 ? '+' : ''}${(item.realizedPnl || 0).toFixed(2)}
             </Text>
           </View>
@@ -3052,9 +3121,9 @@ const styles = StyleSheet.create({
   chartSpreadText: { color: '#666', fontSize: 11, textAlign: 'center', marginTop: 8 },
   
   // Order Panel - Slide from Bottom (Fixed - positioned at bottom)
-  orderModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)' },
-  orderPanelBackdrop: { flex: 1 },
-  orderPanelScroll: { position: 'absolute', bottom: 0, left: 0, right: 0, maxHeight: height * 0.85 },
+  orderModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
+  orderPanelBackdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
+  orderPanelScroll: { maxHeight: height * 0.85 },
   orderPanelContainer: { backgroundColor: '#000000', borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 16, paddingBottom: 40, paddingTop: 8 },
   orderPanelHandle: { width: 40, height: 4, backgroundColor: '#000000', borderRadius: 2, alignSelf: 'center', marginTop: 8, marginBottom: 12 },
   orderPanelHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
