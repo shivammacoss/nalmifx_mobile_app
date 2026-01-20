@@ -759,16 +759,16 @@ const HomeTab = ({ navigation }) => {
           ].map((news) => (
             <TouchableOpacity 
               key={news.id}
-              style={[styles.newsCardVertical, { backgroundColor: colors.bgCard }]}
+              style={[styles.newsCardFull, { backgroundColor: colors.bgCard }]}
               onPress={() => Linking.openURL('https://www.marketwatch.com/latest-news')}
               activeOpacity={0.8}
             >
               <Image 
                 source={{ uri: news.image }}
-                style={styles.newsCardImageVertical}
+                style={styles.newsCardImageFull}
                 resizeMode="cover"
               />
-              <View style={styles.newsCardContentVertical}>
+              <View style={styles.newsCardContentFull}>
                 <View style={styles.newsCardMeta}>
                   <View style={styles.newsCategoryBadge}>
                     <Text style={styles.newsCategoryText}>{news.category}</Text>
@@ -778,13 +778,12 @@ const HomeTab = ({ navigation }) => {
                 <Text style={[styles.newsCardTitle, { color: colors.textPrimary }]} numberOfLines={2}>
                   {news.title}
                 </Text>
-                <Text style={[styles.newsCardDesc, { color: colors.textMuted }]} numberOfLines={2}>
+                <Text style={[styles.newsCardDesc, { color: colors.textMuted }]} numberOfLines={3}>
                   {news.description}
                 </Text>
                 <View style={styles.newsCardFooter}>
-                  <Ionicons name="globe-outline" size={12} color={colors.textMuted} />
+                  <Ionicons name="globe-outline" size={14} color={colors.textMuted} />
                   <Text style={[styles.newsSource, { color: colors.textMuted }]}>MarketWatch</Text>
-                  <Ionicons name="chevron-forward" size={14} color={colors.primary} />
                 </View>
               </View>
             </TouchableOpacity>
@@ -2789,13 +2788,16 @@ const styles = StyleSheet.create({
   liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#ef4444', marginRight: 4 },
   liveText: { color: '#ef4444', fontSize: 10, fontWeight: '700' },
   newsCardsContainer: { paddingRight: 16, gap: 12 },
-  newsCardsVertical: { gap: 12 },
+  newsCardsVertical: { gap: 16 },
   newsCard: { width: 280, backgroundColor: '#111', borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: '#222' },
   newsCardVertical: { flexDirection: 'row', backgroundColor: '#111', borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: '#222', marginBottom: 12 },
+  newsCardFull: { width: '100%', backgroundColor: '#111', borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: '#222' },
   newsCardImage: { width: '100%', height: 180, backgroundColor: '#1a1a1a' },
   newsCardImageVertical: { width: 140, height: 140, backgroundColor: '#1a1a1a' },
+  newsCardImageFull: { width: '100%', height: 200, backgroundColor: '#1a1a1a' },
   newsCardContent: { padding: 14 },
   newsCardContentVertical: { flex: 1, padding: 14, justifyContent: 'space-between' },
+  newsCardContentFull: { padding: 14 },
   newsCardMeta: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   newsCategoryBadge: { backgroundColor: '#d4af3720', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 },
   newsCategoryText: { color: '#d4af37', fontSize: 11, fontWeight: '600' },
