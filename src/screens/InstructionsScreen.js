@@ -77,7 +77,7 @@ const InstructionsScreen = ({ navigation }) => {
       content: [
         { title: 'Password Security', text: 'Use a strong password with letters, numbers, and symbols. Change it regularly.' },
         { title: 'Two-Factor Authentication', text: 'Enable 2FA for an extra layer of security on your account.' },
-        { title: 'Trading PIN', text: 'Your trading account has a 4-digit PIN. Never share it with anyone.' },
+        { title: 'Account Security', text: 'Keep your login credentials secure. Never share them with anyone.' },
         { title: 'Suspicious Activity', text: 'If you notice any suspicious activity, contact support immediately.' },
       ]
     },

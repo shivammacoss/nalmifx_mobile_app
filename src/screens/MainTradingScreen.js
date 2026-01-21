@@ -283,7 +283,7 @@ const defaultInstruments = [
 // Shared context for trading data
 const TradingContext = React.createContext();
 
-const TradingProvider = ({ children, navigation }) => {
+const TradingProvider = ({ children, navigation, route }) => {
   const [user, setUser] = useState(null);
   const [accounts, setAccounts] = useState([]);
   const [selectedAccount, setSelectedAccount] = useState(null);
@@ -309,6 +309,18 @@ const TradingProvider = ({ children, navigation }) => {
       fetchAccounts(user._id);
     }
   }, [user]);
+
+  // Handle selectedAccountId from navigation params (when coming from AccountsScreen)
+  useEffect(() => {
+    if (route?.params?.selectedAccountId && accounts.length > 0) {
+      const account = accounts.find(a => a._id === route.params.selectedAccountId);
+      if (account) {
+        setSelectedAccount(account);
+        // Clear the param to prevent re-triggering
+        navigation.setParams({ selectedAccountId: null });
+      }
+    }
+  }, [route?.params?.selectedAccountId, accounts]);
 
   useEffect(() => {
     if (selectedAccount) {
@@ -2790,10 +2802,10 @@ const ThemedTabNavigator = () => {
 };
 
 // MAIN SCREEN
-const MainTradingScreen = ({ navigation }) => {
+const MainTradingScreen = ({ navigation, route }) => {
   return (
     <ToastProvider>
-      <TradingProvider navigation={navigation}>
+      <TradingProvider navigation={navigation} route={route}>
         <ThemedTabNavigator />
       </TradingProvider>
     </ToastProvider>

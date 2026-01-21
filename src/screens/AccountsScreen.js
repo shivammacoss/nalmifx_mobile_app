@@ -20,11 +20,9 @@ const AccountsScreen = ({ navigation, route }) => {
   const [accounts, setAccounts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [primaryAccountId, setPrimaryAccountId] = useState(null);
   const [showOpenAccountModal, setShowOpenAccountModal] = useState(false);
   const [accountTypes, setAccountTypes] = useState([]);
   const [openingAccount, setOpeningAccount] = useState(false);
-  const [newAccountPin, setNewAccountPin] = useState('');
   const [selectedAccountType, setSelectedAccountType] = useState(null);
   
   // Transfer states
@@ -100,13 +98,6 @@ const AccountsScreen = ({ navigation, route }) => {
       const data = await res.json();
       setAccounts(data.accounts || []);
       
-      // Find primary account
-      const primary = data.accounts?.find(acc => acc.isPrimary);
-      if (primary) {
-        setPrimaryAccountId(primary._id);
-      } else if (data.accounts?.length > 0) {
-        setPrimaryAccountId(data.accounts[0]._id);
-      }
     } catch (e) {
       console.error('Error fetching accounts:', e);
     }
@@ -119,25 +110,6 @@ const AccountsScreen = ({ navigation, route }) => {
     setRefreshing(false);
   };
 
-  const setPrimaryAccount = async (accountId) => {
-    try {
-      const res = await fetch(`${API_URL}/trading-accounts/${accountId}/set-primary`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user._id })
-      });
-      const data = await res.json();
-      if (data.success) {
-        setPrimaryAccountId(accountId);
-        Alert.alert('Success', 'Primary account updated');
-        fetchAccounts();
-      } else {
-        Alert.alert('Error', data.message || 'Failed to set primary account');
-      }
-    } catch (e) {
-      Alert.alert('Error', 'Network error');
-    }
-  };
 
   const handleDeposit = (account) => {
     console.log('Opening deposit modal for account:', account.accountId, account._id);
@@ -337,14 +309,8 @@ const AccountsScreen = ({ navigation, route }) => {
     }
   };
 
-  const openNewAccount = async () => {
-    if (openingAccount || !selectedAccountType) return;
-    
-    // Validate PIN
-    if (!newAccountPin || newAccountPin.length !== 4 || !/^\d{4}$/.test(newAccountPin)) {
-      Alert.alert('Error', 'Please enter a valid 4-digit PIN');
-      return;
-    }
+  const openNewAccount = async (accountType) => {
+    if (openingAccount || !accountType) return;
     
     setOpeningAccount(true);
     try {
@@ -353,15 +319,13 @@ const AccountsScreen = ({ navigation, route }) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userId: user._id,
-          accountTypeId: selectedAccountType._id,
-          pin: newAccountPin
+          accountTypeId: accountType._id
         })
       });
       const data = await res.json();
       if (data.success) {
         Alert.alert('Success', `Account ${data.account?.accountId || ''} created successfully!`);
         setShowOpenAccountModal(false);
-        setNewAccountPin('');
         setSelectedAccountType(null);
         fetchAccounts();
       } else {
@@ -402,17 +366,8 @@ const AccountsScreen = ({ navigation, route }) => {
           </View>
         ) : (
           accounts.map((account) => {
-            const isPrimary = account._id === primaryAccountId || account.isPrimary;
             return (
-              <View key={account._id} style={[styles.accountCard, isPrimary && styles.primaryCard]}>
-                {/* Primary Badge */}
-                {isPrimary && (
-                  <View style={styles.primaryBadge}>
-                    <Ionicons name="star" size={12} color="#000" />
-                    <Text style={styles.primaryBadgeText}>Primary</Text>
-                  </View>
-                )}
-
+              <View key={account._id} style={styles.accountCard}>
                 {/* Account Header */}
                 <TouchableOpacity 
                   style={styles.accountHeader}
@@ -464,17 +419,6 @@ const AccountsScreen = ({ navigation, route }) => {
                   </TouchableOpacity>
                 </View>
 
-                {/* Set as Primary Button */}
-                {!isPrimary && (
-                  <TouchableOpacity 
-                    style={styles.setPrimaryBtn}
-                    onPress={() => setPrimaryAccount(account._id)}
-                  >
-                    <Ionicons name="star-outline" size={16} color="#d4af37" />
-                    <Text style={styles.setPrimaryBtnText}>Set as Primary</Text>
-                  </TouchableOpacity>
-                )}
-
                 {/* Trade Button */}
                 <TouchableOpacity 
                   style={styles.tradeBtn}
@@ -490,62 +434,18 @@ const AccountsScreen = ({ navigation, route }) => {
       </ScrollView>
 
       {/* Open Account Modal */}
-      <Modal visible={showOpenAccountModal} animationType="slide" transparent onRequestClose={() => { setShowOpenAccountModal(false); setSelectedAccountType(null); setNewAccountPin(''); }}>
+      <Modal visible={showOpenAccountModal} animationType="slide" transparent onRequestClose={() => { setShowOpenAccountModal(false); setSelectedAccountType(null); }}>
         <View style={styles.modalOverlay}>
-          <TouchableOpacity style={styles.modalBackdrop} onPress={() => { setShowOpenAccountModal(false); setSelectedAccountType(null); setNewAccountPin(''); }} />
+          <TouchableOpacity style={styles.modalBackdrop} onPress={() => { setShowOpenAccountModal(false); setSelectedAccountType(null); }} />
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>{selectedAccountType ? 'Set Account PIN' : 'Open New Account'}</Text>
-              <TouchableOpacity onPress={() => { setShowOpenAccountModal(false); setSelectedAccountType(null); setNewAccountPin(''); }}>
+              <Text style={styles.modalTitle}>Open New Account</Text>
+              <TouchableOpacity onPress={() => { setShowOpenAccountModal(false); setSelectedAccountType(null); }}>
                 <Ionicons name="close" size={24} color="#666" />
               </TouchableOpacity>
             </View>
             
-            {selectedAccountType ? (
-              <View style={styles.pinSetupContainer}>
-                <View style={styles.selectedTypeInfo}>
-                  <Ionicons name={selectedAccountType.isDemo ? "flask" : "briefcase"} size={24} color="#d4af37" />
-                  <Text style={styles.selectedTypeName}>{selectedAccountType.name}</Text>
-                </View>
-                
-                <Text style={styles.pinDescription}>Create a 4-digit PIN for this trading account. You'll need this PIN for withdrawals and transfers.</Text>
-                
-                <View style={styles.pinInputContainer}>
-                  <Text style={styles.pinLabel}>Enter 4-digit PIN</Text>
-                  <TextInput
-                    style={styles.pinInput}
-                    value={newAccountPin}
-                    onChangeText={setNewAccountPin}
-                    keyboardType="number-pad"
-                    maxLength={4}
-                    secureTextEntry
-                    placeholder="••••"
-                    placeholderTextColor="#666"
-                  />
-                </View>
-                
-                <View style={styles.pinButtonsRow}>
-                  <TouchableOpacity 
-                    style={styles.backToTypesBtn}
-                    onPress={() => { setSelectedAccountType(null); setNewAccountPin(''); }}
-                  >
-                    <Text style={styles.backToTypesBtnText}>Back</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity 
-                    style={[styles.createAccountBtn, openingAccount && styles.buttonDisabled]}
-                    onPress={openNewAccount}
-                    disabled={openingAccount}
-                  >
-                    {openingAccount ? (
-                      <ActivityIndicator size="small" color="#000" />
-                    ) : (
-                      <Text style={styles.createAccountBtnText}>Create Account</Text>
-                    )}
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ) : (
-              <ScrollView style={styles.accountTypesList}>
+            <ScrollView style={styles.accountTypesList}>
                 {accountTypes.length === 0 ? (
                   <View style={styles.loadingTypes}>
                     <ActivityIndicator size="small" color="#d4af37" />
@@ -555,8 +455,9 @@ const AccountsScreen = ({ navigation, route }) => {
                   accountTypes.map(type => (
                     <TouchableOpacity 
                       key={type._id}
-                      style={styles.accountTypeItem}
-                      onPress={() => setSelectedAccountType(type)}
+                      style={[styles.accountTypeItem, openingAccount && styles.buttonDisabled]}
+                      onPress={() => openNewAccount(type)}
+                      disabled={openingAccount}
                     >
                       <View style={styles.accountTypeIcon}>
                         <Ionicons name={type.isDemo ? "flask" : "briefcase"} size={24} color="#d4af37" />
@@ -575,7 +476,6 @@ const AccountsScreen = ({ navigation, route }) => {
                   ))
                 )}
               </ScrollView>
-            )}
           </View>
         </View>
       </Modal>
