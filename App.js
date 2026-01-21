@@ -56,10 +56,28 @@ const AppContent = () => {
 
 export default function App() {
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#000000' }}>
       <ThemeProvider>
         <AuthProvider>
-          <NavigationContainer>
+          <NavigationContainer
+            theme={{
+              dark: true,
+              colors: {
+                primary: '#d4af37',
+                background: '#000000',
+                card: '#000000',
+                text: '#ffffff',
+                border: '#1a1a1a',
+                notification: '#d4af37',
+              },
+              fonts: {
+                regular: { fontFamily: 'System', fontWeight: '400' },
+                medium: { fontFamily: 'System', fontWeight: '500' },
+                bold: { fontFamily: 'System', fontWeight: '700' },
+                heavy: { fontFamily: 'System', fontWeight: '900' },
+              },
+            }}
+          >
             <AppContent />
           </NavigationContainer>
         </AuthProvider>

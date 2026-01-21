@@ -44,8 +44,8 @@ const AccountsScreen = ({ navigation, route }) => {
 
   useEffect(() => {
     if (user) {
-      fetchAccounts();
-      fetchWalletBalance();
+      // Fetch accounts and wallet balance in parallel for faster loading
+      Promise.all([fetchAccounts(), fetchWalletBalance()]);
     }
   }, [user]);
   
@@ -96,6 +96,7 @@ const AccountsScreen = ({ navigation, route }) => {
     try {
       const res = await fetch(`${API_URL}/trading-accounts/user/${user._id}`);
       const data = await res.json();
+      console.log('AccountsScreen - Fetched accounts:', JSON.stringify(data.accounts?.map(a => ({ id: a.accountId, balance: a.balance, credit: a.credit }))));
       setAccounts(data.accounts || []);
       
     } catch (e) {
@@ -164,7 +165,6 @@ const AccountsScreen = ({ navigation, route }) => {
           userId: user._id,
           amount: parseFloat(transferAmount),
           direction: 'deposit',
-          skipPinVerification: true
         })
       });
       const data = await res.json();
@@ -211,7 +211,6 @@ const AccountsScreen = ({ navigation, route }) => {
           userId: user._id,
           amount: parseFloat(transferAmount),
           direction: 'withdraw',
-          skipPinVerification: true
         })
       });
       const data = await res.json();
@@ -257,7 +256,6 @@ const AccountsScreen = ({ navigation, route }) => {
           fromAccountId: selectedAccount._id,
           toAccountId: targetAccount._id,
           amount: parseFloat(transferAmount),
-          skipPinVerification: true
         })
       });
       const data = await res.json();
@@ -278,7 +276,9 @@ const AccountsScreen = ({ navigation, route }) => {
     setIsTransferring(false);
   };
 
-  const selectAccountForTrading = (account) => {
+  const selectAccountForTrading = async (account) => {
+    // Save selected account to SecureStore BEFORE navigating
+    await SecureStore.setItemAsync('selectedAccountId', account._id);
     // Navigate to MainTrading with selected account
     navigation.navigate('MainTrading', { selectedAccountId: account._id });
   };
@@ -320,8 +320,7 @@ const AccountsScreen = ({ navigation, route }) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userId: user._id,
-          accountTypeId: accountType._id,
-          pin: '0000'
+          accountTypeId: accountType._id
         })
       });
       const text = await res.text();
@@ -391,7 +390,7 @@ const AccountsScreen = ({ navigation, route }) => {
                   </View>
                   <View style={styles.accountInfo}>
                     <Text style={styles.accountId}>{account.accountId}</Text>
-                    <Text style={styles.accountType}>{account.accountType || 'Standard'}</Text>
+                    <Text style={styles.accountType}>{account.accountTypeId?.name || account.accountType || 'Standard'}</Text>
                   </View>
                   <Ionicons name="chevron-forward" size={20} color="#666" />
                 </TouchableOpacity>
@@ -404,8 +403,8 @@ const AccountsScreen = ({ navigation, route }) => {
                       <Text style={styles.balanceValue}>${(account.balance || 0).toFixed(2)}</Text>
                     </View>
                     <View style={styles.balanceItem}>
-                      <Text style={styles.balanceLabel}>Credit</Text>
-                      <Text style={styles.balanceValue}>${(account.credit || 0).toFixed(2)}</Text>
+                      <Text style={styles.balanceLabel}>Equity</Text>
+                      <Text style={styles.balanceValue}>${((account.balance || 0) + (account.credit || 0)).toFixed(2)}</Text>
                     </View>
                     <View style={styles.balanceItem}>
                       <Text style={styles.balanceLabel}>Leverage</Text>
@@ -943,60 +942,6 @@ const styles = StyleSheet.create({
   accountTypeDetail: {
     color: '#888',
     fontSize: 11,
-  },
-  // PIN Modal Styles
-  pinSetupContainer: {
-    padding: 16,
-  },
-  selectedTypeInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    backgroundColor: '#1a1a1a',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 20,
-  },
-  selectedTypeName: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  pinModalContent: {
-    backgroundColor: '#000000',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 20,
-  },
-  pinDescription: {
-    color: '#888',
-    fontSize: 14,
-    lineHeight: 20,
-    marginBottom: 24,
-  },
-  pinInputContainer: {
-    marginBottom: 24,
-  },
-  pinLabel: {
-    color: '#888',
-    fontSize: 12,
-    marginBottom: 8,
-  },
-  pinInput: {
-    backgroundColor: '#1a1a1a',
-    borderWidth: 1,
-    borderColor: '#333',
-    borderRadius: 12,
-    padding: 16,
-    color: '#fff',
-    fontSize: 24,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    letterSpacing: 8,
-  },
-  pinButtonsRow: {
-    flexDirection: 'row',
-    gap: 12,
   },
   backToTypesBtn: {
     flex: 1,

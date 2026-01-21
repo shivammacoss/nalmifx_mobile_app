@@ -39,9 +39,8 @@ const WalletScreen = ({ navigation }) => {
 
   useEffect(() => {
     if (user) {
-      fetchWalletData();
-      fetchPaymentMethods();
-      fetchCurrencies();
+      // Fetch all data in parallel for faster loading
+      Promise.all([fetchWalletData(), fetchPaymentMethods(), fetchCurrencies()]);
     }
   }, [user]);
 

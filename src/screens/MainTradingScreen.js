@@ -314,13 +314,24 @@ const TradingProvider = ({ children, navigation, route }) => {
   useEffect(() => {
     if (route?.params?.selectedAccountId && accounts.length > 0) {
       const account = accounts.find(a => a._id === route.params.selectedAccountId);
+      console.log('DEBUG: Selecting account from params:', route.params.selectedAccountId);
+      console.log('DEBUG: Found account:', account ? { id: account.accountId, balance: account.balance, credit: account.credit } : 'NOT FOUND');
       if (account) {
         setSelectedAccount(account);
+        // Save to SecureStore for persistence
+        SecureStore.setItemAsync('selectedAccountId', account._id);
         // Clear the param to prevent re-triggering
         navigation.setParams({ selectedAccountId: null });
       }
     }
   }, [route?.params?.selectedAccountId, accounts]);
+
+  // Save selected account ID whenever it changes
+  useEffect(() => {
+    if (selectedAccount?._id) {
+      SecureStore.setItemAsync('selectedAccountId', selectedAccount._id);
+    }
+  }, [selectedAccount?._id]);
 
   useEffect(() => {
     if (selectedAccount) {
@@ -416,16 +427,34 @@ const TradingProvider = ({ children, navigation, route }) => {
     setLoading(false);
   };
 
-  const fetchAccounts = async (userId) => {
+  const fetchAccounts = async (userId, forceSelectFirst = false) => {
     try {
       console.log('DEBUG: Fetching accounts for userId:', userId);
       const res = await fetch(`${API_URL}/trading-accounts/user/${userId}`);
       const data = await res.json();
       console.log('DEBUG: Accounts response:', data.success, 'Count:', data.accounts?.length);
       setAccounts(data.accounts || []);
+      
       if (data.accounts?.length > 0) {
-        console.log('DEBUG: Setting selected account:', data.accounts[0].accountId);
-        setSelectedAccount(data.accounts[0]);
+        // Try to restore previously selected account from SecureStore
+        const savedAccountId = await SecureStore.getItemAsync('selectedAccountId');
+        console.log('DEBUG: Saved account ID from SecureStore:', savedAccountId);
+        
+        if (savedAccountId) {
+          const savedAccount = data.accounts.find(a => a._id === savedAccountId);
+          if (savedAccount) {
+            console.log('DEBUG: Restoring saved account:', savedAccount.accountId);
+            // Update the selected account with fresh data from server
+            setSelectedAccount(savedAccount);
+            return;
+          }
+        }
+        
+        // Only set first account if no saved account found OR forced
+        if (forceSelectFirst || !selectedAccount) {
+          console.log('DEBUG: No saved account, using first account:', data.accounts[0].accountId);
+          setSelectedAccount(data.accounts[0]);
+        }
       }
     } catch (e) {
       console.error('Error fetching accounts:', e);
@@ -867,6 +896,13 @@ const QuotesTab = ({ navigation }) => {
   const executeTrade = async () => {
     if (!selectedInstrument || !ctx.selectedAccount || !ctx.user) return;
     if (isExecuting) return;
+    
+    console.log('DEBUG: Executing trade with account:', { 
+      accountId: ctx.selectedAccount.accountId, 
+      _id: ctx.selectedAccount._id,
+      balance: ctx.selectedAccount.balance, 
+      credit: ctx.selectedAccount.credit 
+    });
     
     setIsExecuting(true);
     try {
