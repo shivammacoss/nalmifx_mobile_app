@@ -314,15 +314,27 @@ const AccountsScreen = ({ navigation, route }) => {
     
     setOpeningAccount(true);
     try {
+      console.log('Creating account with:', { userId: user._id, accountTypeId: accountType._id });
       const res = await fetch(`${API_URL}/trading-accounts`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userId: user._id,
-          accountTypeId: accountType._id
+          accountTypeId: accountType._id,
+          pin: '0000'
         })
       });
-      const data = await res.json();
+      const text = await res.text();
+      console.log('Create account raw response:', text);
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (parseErr) {
+        console.error('Failed to parse response:', text);
+        Alert.alert('Error', 'Server error: ' + text.substring(0, 100));
+        return;
+      }
+      console.log('Create account response:', data);
       if (data.success) {
         Alert.alert('Success', `Account ${data.account?.accountId || ''} created successfully!`);
         setShowOpenAccountModal(false);
@@ -332,7 +344,8 @@ const AccountsScreen = ({ navigation, route }) => {
         Alert.alert('Error', data.message || 'Failed to create account');
       }
     } catch (e) {
-      Alert.alert('Error', 'Network error');
+      console.error('Error creating account:', e.message);
+      Alert.alert('Error', 'Network error: ' + e.message);
     } finally {
       setOpeningAccount(false);
     }
