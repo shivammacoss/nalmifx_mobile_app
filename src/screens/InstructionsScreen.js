@@ -7,8 +7,10 @@ import {
   ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../context/ThemeContext';
 
 const InstructionsScreen = ({ navigation }) => {
+  const { colors, isDark } = useTheme();
   const [expandedSection, setExpandedSection] = useState('getting-started');
 
   const sections = [
@@ -88,32 +90,32 @@ const InstructionsScreen = ({ navigation }) => {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.bgPrimary }]}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: colors.bgPrimary }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={24} color="#fff" />
+          <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Instructions</Text>
+        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Instructions</Text>
         <View style={{ width: 40 }} />
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Welcome Banner */}
-        <View style={styles.welcomeBanner}>
+        <View style={[styles.welcomeBanner, { borderColor: colors.accent + '30' }]}>
           <View style={styles.welcomeIcon}>
-            <Ionicons name="book-outline" size={28} color="#d4af37" />
+            <Ionicons name="book-outline" size={28} color={colors.accent} />
           </View>
           <View style={styles.welcomeText}>
-            <Text style={styles.welcomeTitle}>Welcome to NalmiFX</Text>
-            <Text style={styles.welcomeSubtitle}>Learn how to use our platform</Text>
+            <Text style={[styles.welcomeTitle, { color: colors.textPrimary }]}>Welcome to NalmiFX</Text>
+            <Text style={[styles.welcomeSubtitle, { color: colors.textMuted }]}>Learn how to use our platform</Text>
           </View>
         </View>
 
         {/* Accordion Sections */}
         <View style={styles.sectionsContainer}>
           {sections.map(section => (
-            <View key={section.id} style={styles.sectionCard}>
+            <View key={section.id} style={[styles.sectionCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
               <TouchableOpacity 
                 style={styles.sectionHeader}
                 onPress={() => toggleSection(section.id)}
@@ -121,27 +123,27 @@ const InstructionsScreen = ({ navigation }) => {
               >
                 <View style={styles.sectionHeaderLeft}>
                   <View style={styles.sectionIcon}>
-                    <Ionicons name={section.icon} size={20} color="#d4af37" />
+                    <Ionicons name={section.icon} size={20} color={colors.accent} />
                   </View>
-                  <Text style={styles.sectionTitle}>{section.title}</Text>
+                  <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>{section.title}</Text>
                 </View>
                 <Ionicons 
                   name={expandedSection === section.id ? 'chevron-down' : 'chevron-forward'} 
                   size={20} 
-                  color="#666" 
+                  color={colors.textMuted} 
                 />
               </TouchableOpacity>
               
               {expandedSection === section.id && (
-                <View style={styles.sectionContent}>
+                <View style={[styles.sectionContent, { borderTopColor: colors.border }]}>
                   {section.content.map((item, idx) => (
                     <View key={idx} style={styles.contentItem}>
                       <View style={styles.contentNumber}>
                         <Text style={styles.contentNumberText}>{idx + 1}</Text>
                       </View>
                       <View style={styles.contentText}>
-                        <Text style={styles.contentTitle}>{item.title}</Text>
-                        <Text style={styles.contentDescription}>{item.text}</Text>
+                        <Text style={[styles.contentTitle, { color: colors.textPrimary }]}>{item.title}</Text>
+                        <Text style={[styles.contentDescription, { color: colors.textMuted }]}>{item.text}</Text>
                       </View>
                     </View>
                   ))}
@@ -152,9 +154,9 @@ const InstructionsScreen = ({ navigation }) => {
         </View>
 
         {/* Contact Support */}
-        <View style={styles.supportCard}>
-          <Text style={styles.supportTitle}>Need More Help?</Text>
-          <Text style={styles.supportText}>
+        <View style={[styles.supportCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+          <Text style={[styles.supportTitle, { color: colors.textPrimary }]}>Need More Help?</Text>
+          <Text style={[styles.supportText, { color: colors.textMuted }]}>
             If you couldn't find what you're looking for, our support team is here to help.
           </Text>
           <TouchableOpacity 
@@ -172,7 +174,7 @@ const InstructionsScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000000' },
+  container: { flex: 1 },
   
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 60, paddingBottom: 16 },
   backBtn: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
@@ -186,15 +188,15 @@ const styles = StyleSheet.create({
     marginBottom: 16, 
     padding: 16, 
     borderRadius: 16, 
-    backgroundColor: '#d4af3715',
+    backgroundColor: '#2563eb15',
     borderWidth: 1,
-    borderColor: '#d4af3730'
+    borderColor: '#2563eb30'
   },
   welcomeIcon: { 
     width: 50, 
     height: 50, 
     borderRadius: 25, 
-    backgroundColor: '#d4af3720', 
+    backgroundColor: '#2563eb20', 
     justifyContent: 'center', 
     alignItems: 'center' 
   },
@@ -223,7 +225,7 @@ const styles = StyleSheet.create({
     width: 36, 
     height: 36, 
     borderRadius: 10, 
-    backgroundColor: '#d4af3720', 
+    backgroundColor: '#2563eb20', 
     justifyContent: 'center', 
     alignItems: 'center',
     marginRight: 12
@@ -244,13 +246,13 @@ const styles = StyleSheet.create({
     width: 24, 
     height: 24, 
     borderRadius: 12, 
-    backgroundColor: '#d4af3720', 
+    backgroundColor: '#2563eb20', 
     justifyContent: 'center', 
     alignItems: 'center',
     marginRight: 12,
     marginTop: 2
   },
-  contentNumberText: { color: '#d4af37', fontSize: 12, fontWeight: 'bold' },
+  contentNumberText: { color: '#2563eb', fontSize: 12, fontWeight: 'bold' },
   contentText: { flex: 1 },
   contentTitle: { color: '#fff', fontSize: 14, fontWeight: '600' },
   contentDescription: { color: '#888', fontSize: 13, marginTop: 4, lineHeight: 18 },
@@ -268,7 +270,7 @@ const styles = StyleSheet.create({
   supportTitle: { color: '#fff', fontSize: 16, fontWeight: '600', marginBottom: 8 },
   supportText: { color: '#888', fontSize: 13, lineHeight: 18, marginBottom: 16 },
   supportBtn: { 
-    backgroundColor: '#d4af37', 
+    backgroundColor: '#2563eb', 
     paddingVertical: 12, 
     borderRadius: 10, 
     alignItems: 'center' 

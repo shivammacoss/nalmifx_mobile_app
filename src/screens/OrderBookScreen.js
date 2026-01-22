@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import {
   View,
   Text,
@@ -12,8 +12,10 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
 import { API_URL } from '../config/api';
+import { useTheme } from '../context/ThemeContext';
 
 const OrderBookScreen = ({ navigation }) => {
+  const { colors, isDark } = useTheme();
   const [user, setUser] = useState(null);
   const [accounts, setAccounts] = useState([]);
   const [selectedAccount, setSelectedAccount] = useState('all');
@@ -32,6 +34,8 @@ const OrderBookScreen = ({ navigation }) => {
 
   useEffect(() => {
     if (user) {
+      // Set loading false early to show UI, then fetch data in background
+      setLoading(false);
       fetchAccounts();
     }
   }, [user]);
@@ -93,7 +97,6 @@ const OrderBookScreen = ({ navigation }) => {
   };
 
   const fetchAllTrades = async () => {
-    setLoading(true);
     try {
       const accountsToFetch = selectedAccount === 'all' 
         ? accounts 
@@ -132,7 +135,6 @@ const OrderBookScreen = ({ navigation }) => {
     } catch (e) {
       console.error('Error fetching trades:', e);
     }
-    setLoading(false);
   };
 
   const onRefresh = async () => {
@@ -251,34 +253,34 @@ const OrderBookScreen = ({ navigation }) => {
     const currentPrice = trade.side === 'BUY' ? prices.bid : prices.ask;
     
     return (
-      <View key={trade._id} style={styles.tradeCard}>
+      <View key={trade._id} style={[styles.tradeCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
         <View style={styles.tradeHeader}>
           <View style={styles.tradeSymbolRow}>
-            <Text style={styles.tradeSymbol}>{trade.symbol}</Text>
-            <View style={[styles.sideBadge, { backgroundColor: trade.side === 'BUY' ? '#d4af3720' : '#d4af3720' }]}>
-              <Text style={[styles.sideText, { color: trade.side === 'BUY' ? '#d4af37' : '#d4af37' }]}>
+            <Text style={[styles.tradeSymbol, { color: colors.textPrimary }]}>{trade.symbol}</Text>
+            <View style={[styles.sideBadge, { backgroundColor: trade.side === 'BUY' ? '#2563eb20' : '#ef444420' }]}>
+              <Text style={[styles.sideText, { color: trade.side === 'BUY' ? '#2563eb' : '#ef4444' }]}>
                 {trade.side}
               </Text>
             </View>
           </View>
-          <Text style={styles.accountLabel}>{trade.accountName}</Text>
+          <Text style={[styles.accountLabel, { color: colors.textMuted }]}>{trade.accountName}</Text>
         </View>
         
         <View style={styles.tradeDetails}>
           <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Volume</Text>
-            <Text style={styles.detailValue}>{trade.quantity}</Text>
+            <Text style={[styles.detailLabel, { color: colors.textMuted }]}>Volume</Text>
+            <Text style={[styles.detailValue, { color: colors.textPrimary }]}>{trade.quantity}</Text>
           </View>
           <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Open Price</Text>
-            <Text style={styles.detailValue}>{trade.openPrice?.toFixed(5)}</Text>
+            <Text style={[styles.detailLabel, { color: colors.textMuted }]}>Open Price</Text>
+            <Text style={[styles.detailValue, { color: colors.textPrimary }]}>{trade.openPrice?.toFixed(5)}</Text>
           </View>
           <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Current</Text>
-            <Text style={styles.detailValue}>{currentPrice?.toFixed(5) || '...'}</Text>
+            <Text style={[styles.detailLabel, { color: colors.textMuted }]}>Current</Text>
+            <Text style={[styles.detailValue, { color: colors.textPrimary }]}>{currentPrice?.toFixed(5) || '...'}</Text>
           </View>
           <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>P/L</Text>
+            <Text style={[styles.detailLabel, { color: colors.textMuted }]}>P/L</Text>
             <Text style={[styles.detailValue, { color: pnl >= 0 ? '#22c55e' : '#ef4444', fontWeight: '600' }]}>
               ${pnl.toFixed(2)}
             </Text>
@@ -293,76 +295,76 @@ const OrderBookScreen = ({ navigation }) => {
   };
 
   const renderPendingItem = (order) => (
-    <View key={order._id} style={styles.tradeCard}>
+    <View key={order._id} style={[styles.tradeCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
       <View style={styles.tradeHeader}>
         <View style={styles.tradeSymbolRow}>
-          <Text style={styles.tradeSymbol}>{order.symbol}</Text>
-          <View style={[styles.sideBadge, { backgroundColor: '#d4af3720' }]}>
-            <Text style={[styles.sideText, { color: '#d4af37' }]}>{order.orderType}</Text>
+          <Text style={[styles.tradeSymbol, { color: colors.textPrimary }]}>{order.symbol}</Text>
+          <View style={[styles.sideBadge, { backgroundColor: '#eab30820' }]}>
+            <Text style={[styles.sideText, { color: '#eab308' }]}>{order.orderType}</Text>
           </View>
         </View>
-        <Text style={styles.accountLabel}>{order.accountName}</Text>
+        <Text style={[styles.accountLabel, { color: colors.textMuted }]}>{order.accountName}</Text>
       </View>
       
       <View style={styles.tradeDetails}>
         <View style={styles.detailRow}>
-          <Text style={styles.detailLabel}>Side</Text>
-          <Text style={[styles.detailValue, { color: order.side === 'BUY' ? '#d4af37' : '#d4af37' }]}>
+          <Text style={[styles.detailLabel, { color: colors.textMuted }]}>Side</Text>
+          <Text style={[styles.detailValue, { color: order.side === 'BUY' ? '#2563eb' : '#ef4444' }]}>
             {order.side}
           </Text>
         </View>
         <View style={styles.detailRow}>
-          <Text style={styles.detailLabel}>Volume</Text>
-          <Text style={styles.detailValue}>{order.quantity}</Text>
+          <Text style={[styles.detailLabel, { color: colors.textMuted }]}>Volume</Text>
+          <Text style={[styles.detailValue, { color: colors.textPrimary }]}>{order.quantity}</Text>
         </View>
         <View style={styles.detailRow}>
-          <Text style={styles.detailLabel}>Entry Price</Text>
-          <Text style={styles.detailValue}>{order.entryPrice?.toFixed(5)}</Text>
+          <Text style={[styles.detailLabel, { color: colors.textMuted }]}>Entry Price</Text>
+          <Text style={[styles.detailValue, { color: colors.textPrimary }]}>{order.entryPrice?.toFixed(5)}</Text>
         </View>
       </View>
 
-      <TouchableOpacity style={[styles.closeBtn, { backgroundColor: '#d4af3720' }]} onPress={() => cancelPendingOrder(order)}>
-        <Text style={[styles.closeBtnText, { color: '#d4af37' }]}>Cancel Order</Text>
+      <TouchableOpacity style={[styles.closeBtn, { backgroundColor: '#ef444420' }]} onPress={() => cancelPendingOrder(order)}>
+        <Text style={[styles.closeBtnText, { color: '#ef4444' }]}>Cancel Order</Text>
       </TouchableOpacity>
     </View>
   );
 
   const renderHistoryItem = (trade) => (
-    <View key={trade._id} style={styles.tradeCard}>
+    <View key={trade._id} style={[styles.tradeCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
       <View style={styles.tradeHeader}>
         <View style={styles.tradeSymbolRow}>
-          <Text style={styles.tradeSymbol}>{trade.symbol}</Text>
-          <View style={[styles.sideBadge, { backgroundColor: trade.side === 'BUY' ? '#d4af3720' : '#d4af3720' }]}>
-            <Text style={[styles.sideText, { color: trade.side === 'BUY' ? '#d4af37' : '#d4af37' }]}>
+          <Text style={[styles.tradeSymbol, { color: colors.textPrimary }]}>{trade.symbol}</Text>
+          <View style={[styles.sideBadge, { backgroundColor: trade.side === 'BUY' ? '#2563eb20' : '#ef444420' }]}>
+            <Text style={[styles.sideText, { color: trade.side === 'BUY' ? '#2563eb' : '#ef4444' }]}>
               {trade.side}
             </Text>
           </View>
         </View>
-        <Text style={styles.accountLabel}>{trade.accountName}</Text>
+        <Text style={[styles.accountLabel, { color: colors.textMuted }]}>{trade.accountName}</Text>
       </View>
       
       <View style={styles.tradeDetails}>
         <View style={styles.detailRow}>
-          <Text style={styles.detailLabel}>Volume</Text>
-          <Text style={styles.detailValue}>{trade.quantity}</Text>
+          <Text style={[styles.detailLabel, { color: colors.textMuted }]}>Volume</Text>
+          <Text style={[styles.detailValue, { color: colors.textPrimary }]}>{trade.quantity}</Text>
         </View>
         <View style={styles.detailRow}>
-          <Text style={styles.detailLabel}>Open</Text>
-          <Text style={styles.detailValue}>{trade.openPrice?.toFixed(5)}</Text>
+          <Text style={[styles.detailLabel, { color: colors.textMuted }]}>Open</Text>
+          <Text style={[styles.detailValue, { color: colors.textPrimary }]}>{trade.openPrice?.toFixed(5)}</Text>
         </View>
         <View style={styles.detailRow}>
-          <Text style={styles.detailLabel}>Close</Text>
-          <Text style={styles.detailValue}>{trade.closePrice?.toFixed(5)}</Text>
+          <Text style={[styles.detailLabel, { color: colors.textMuted }]}>Close</Text>
+          <Text style={[styles.detailValue, { color: colors.textPrimary }]}>{trade.closePrice?.toFixed(5)}</Text>
         </View>
         <View style={styles.detailRow}>
-          <Text style={styles.detailLabel}>P/L</Text>
+          <Text style={[styles.detailLabel, { color: colors.textMuted }]}>P/L</Text>
           <Text style={[styles.detailValue, { color: (trade.realizedPnl || 0) >= 0 ? '#22c55e' : '#ef4444', fontWeight: '600' }]}>
             ${(trade.realizedPnl || 0).toFixed(2)}
           </Text>
         </View>
       </View>
       
-      <Text style={styles.dateText}>
+      <Text style={[styles.dateText, { color: colors.textMuted }]}>
         {new Date(trade.closedAt).toLocaleDateString()} {new Date(trade.closedAt).toLocaleTimeString()}
       </Text>
     </View>
@@ -370,62 +372,62 @@ const OrderBookScreen = ({ navigation }) => {
 
   if (loading && accounts.length === 0) {
     return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#d4af37" />
+      <View style={[styles.centered, { backgroundColor: colors.bgPrimary }]}>
+        <ActivityIndicator size="large" color={colors.accent} />
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.bgPrimary }]}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: colors.bgPrimary }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={24} color="#fff" />
+          <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Order Book</Text>
+        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Order Book</Text>
         <TouchableOpacity onPress={onRefresh} style={styles.refreshBtn}>
-          <Ionicons name="refresh" size={22} color="#d4af37" />
+          <Ionicons name="refresh" size={22} color={colors.accent} />
         </TouchableOpacity>
       </View>
 
       {/* Account Selector */}
       <TouchableOpacity 
-        style={styles.accountSelector}
+        style={[styles.accountSelector, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
         onPress={() => setShowAccountPicker(!showAccountPicker)}
       >
-        <Ionicons name="briefcase-outline" size={18} color="#d4af37" />
-        <Text style={styles.accountSelectorText}>{getSelectedAccountName()}</Text>
-        <Ionicons name="chevron-down" size={18} color="#666" />
+        <Ionicons name="briefcase-outline" size={18} color={colors.accent} />
+        <Text style={[styles.accountSelectorText, { color: colors.textPrimary }]}>{getSelectedAccountName()}</Text>
+        <Ionicons name="chevron-down" size={18} color={colors.textMuted} />
       </TouchableOpacity>
 
       {showAccountPicker && (
-        <View style={styles.accountPickerDropdown}>
+        <View style={[styles.accountPickerDropdown, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
           <TouchableOpacity 
-            style={[styles.accountOption, selectedAccount === 'all' && styles.accountOptionActive]}
+            style={[styles.accountOption, { borderBottomColor: colors.border }, selectedAccount === 'all' && styles.accountOptionActive]}
             onPress={() => { setSelectedAccount('all'); setShowAccountPicker(false); }}
           >
-            <Text style={styles.accountOptionText}>All Accounts</Text>
+            <Text style={[styles.accountOptionText, { color: colors.textPrimary }]}>All Accounts</Text>
           </TouchableOpacity>
           {accounts.map(acc => (
             <TouchableOpacity 
               key={acc._id}
-              style={[styles.accountOption, selectedAccount === acc._id && styles.accountOptionActive]}
+              style={[styles.accountOption, { borderBottomColor: colors.border }, selectedAccount === acc._id && styles.accountOptionActive]}
               onPress={() => { setSelectedAccount(acc._id); setShowAccountPicker(false); }}
             >
-              <Text style={styles.accountOptionText}>{acc.accountId}</Text>
+              <Text style={[styles.accountOptionText, { color: colors.textPrimary }]}>{acc.accountId}</Text>
             </TouchableOpacity>
           ))}
         </View>
       )}
 
       {/* Tabs */}
-      <View style={styles.tabsContainer}>
+      <View style={[styles.tabsContainer, { backgroundColor: colors.bgSecondary }]}>
         <TouchableOpacity 
           style={[styles.tab, activeTab === 'positions' && styles.tabActive]}
           onPress={() => setActiveTab('positions')}
         >
-          <Text style={[styles.tabText, activeTab === 'positions' && styles.tabTextActive]}>
+          <Text style={[styles.tabText, { color: colors.textMuted }, activeTab === 'positions' && styles.tabTextActive]}>
             Positions ({openTrades.length})
           </Text>
         </TouchableOpacity>
@@ -433,7 +435,7 @@ const OrderBookScreen = ({ navigation }) => {
           style={[styles.tab, activeTab === 'pending' && styles.tabActive]}
           onPress={() => setActiveTab('pending')}
         >
-          <Text style={[styles.tabText, activeTab === 'pending' && styles.tabTextActive]}>
+          <Text style={[styles.tabText, { color: colors.textMuted }, activeTab === 'pending' && styles.tabTextActive]}>
             Pending ({pendingOrders.length})
           </Text>
         </TouchableOpacity>
@@ -441,7 +443,7 @@ const OrderBookScreen = ({ navigation }) => {
           style={[styles.tab, activeTab === 'history' && styles.tabActive]}
           onPress={() => setActiveTab('history')}
         >
-          <Text style={[styles.tabText, activeTab === 'history' && styles.tabTextActive]}>
+          <Text style={[styles.tabText, { color: colors.textMuted }, activeTab === 'history' && styles.tabTextActive]}>
             History
           </Text>
         </TouchableOpacity>
@@ -449,8 +451,8 @@ const OrderBookScreen = ({ navigation }) => {
 
       {/* Summary Bar */}
       {activeTab === 'positions' && openTrades.length > 0 && (
-        <View style={styles.summaryBar}>
-          <Text style={styles.summaryLabel}>Total Floating P/L:</Text>
+        <View style={[styles.summaryBar, { backgroundColor: colors.bgCard }]}>
+          <Text style={[styles.summaryLabel, { color: colors.textMuted }]}>Total Floating P/L:</Text>
           <Text style={[styles.summaryValue, { color: getTotalPnl() >= 0 ? '#22c55e' : '#ef4444' }]}>
             ${getTotalPnl().toFixed(2)}
           </Text>
@@ -460,18 +462,18 @@ const OrderBookScreen = ({ navigation }) => {
       {/* Content */}
       <ScrollView
         style={styles.content}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#d4af37" />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
       >
         {loading ? (
-          <ActivityIndicator size="large" color="#d4af37" style={{ marginTop: 40 }} />
+          <ActivityIndicator size="large" color={colors.accent} style={{ marginTop: 40 }} />
         ) : (
           <>
             {activeTab === 'positions' && (
               openTrades.length === 0 ? (
                 <View style={styles.emptyState}>
-                  <Ionicons name="trending-up-outline" size={48} color="#000000" />
-                  <Text style={styles.emptyTitle}>No Open Positions</Text>
-                  <Text style={styles.emptyText}>Your open trades will appear here</Text>
+                  <Ionicons name="trending-up-outline" size={48} color={colors.textMuted} />
+                  <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>No Open Positions</Text>
+                  <Text style={[styles.emptyText, { color: colors.textMuted }]}>Your open trades will appear here</Text>
                 </View>
               ) : (
                 openTrades.map(trade => renderPositionItem(trade))
@@ -481,9 +483,9 @@ const OrderBookScreen = ({ navigation }) => {
             {activeTab === 'pending' && (
               pendingOrders.length === 0 ? (
                 <View style={styles.emptyState}>
-                  <Ionicons name="time-outline" size={48} color="#000000" />
-                  <Text style={styles.emptyTitle}>No Pending Orders</Text>
-                  <Text style={styles.emptyText}>Your pending orders will appear here</Text>
+                  <Ionicons name="time-outline" size={48} color={colors.textMuted} />
+                  <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>No Pending Orders</Text>
+                  <Text style={[styles.emptyText, { color: colors.textMuted }]}>Your pending orders will appear here</Text>
                 </View>
               ) : (
                 pendingOrders.map(order => renderPendingItem(order))
@@ -493,9 +495,9 @@ const OrderBookScreen = ({ navigation }) => {
             {activeTab === 'history' && (
               closedTrades.length === 0 ? (
                 <View style={styles.emptyState}>
-                  <Ionicons name="document-text-outline" size={48} color="#000000" />
-                  <Text style={styles.emptyTitle}>No Trade History</Text>
-                  <Text style={styles.emptyText}>Your closed trades will appear here</Text>
+                  <Ionicons name="document-text-outline" size={48} color={colors.textMuted} />
+                  <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>No Trade History</Text>
+                  <Text style={[styles.emptyText, { color: colors.textMuted }]}>Your closed trades will appear here</Text>
                 </View>
               ) : (
                 closedTrades.slice(0, 50).map(trade => renderHistoryItem(trade))
@@ -511,13 +513,11 @@ const OrderBookScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000000',
   },
   centered: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#000000',
   },
   header: {
     flexDirection: 'row',
@@ -554,43 +554,35 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     marginHorizontal: 16,
     marginTop: 12,
-    backgroundColor: '#000000',
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#000000',
   },
   accountSelectorText: {
-    color: '#fff',
     fontSize: 14,
     fontWeight: '500',
   },
   accountPickerDropdown: {
     marginHorizontal: 16,
     marginTop: 4,
-    backgroundColor: '#000000',
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#000000',
     overflow: 'hidden',
   },
   accountOption: {
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#000000',
   },
   accountOptionActive: {
-    backgroundColor: '#d4af3720',
+    backgroundColor: '#2563eb20',
   },
   accountOptionText: {
-    color: '#fff',
     fontSize: 14,
   },
   tabsContainer: {
     flexDirection: 'row',
     marginHorizontal: 16,
     marginTop: 12,
-    backgroundColor: '#000000',
     borderRadius: 10,
     padding: 4,
   },
@@ -601,7 +593,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   tabActive: {
-    backgroundColor: '#d4af37',
+    backgroundColor: '#2563eb',
   },
   tabText: {
     color: '#666',
@@ -619,7 +611,6 @@ const styles = StyleSheet.create({
     marginTop: 12,
     paddingVertical: 12,
     paddingHorizontal: 16,
-    backgroundColor: '#000000',
     borderRadius: 10,
   },
   summaryLabel: {
@@ -640,7 +631,6 @@ const styles = StyleSheet.create({
     paddingVertical: 60,
   },
   emptyTitle: {
-    color: '#fff',
     fontSize: 16,
     fontWeight: '600',
     marginTop: 16,
@@ -651,12 +641,10 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   tradeCard: {
-    backgroundColor: '#000000',
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#000000',
   },
   tradeHeader: {
     flexDirection: 'row',
@@ -670,7 +658,6 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   tradeSymbol: {
-    color: '#fff',
     fontSize: 16,
     fontWeight: '600',
   },
@@ -703,17 +690,16 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   detailValue: {
-    color: '#fff',
     fontSize: 13,
   },
   closeBtn: {
-    backgroundColor: '#d4af3720',
+    backgroundColor: '#2563eb20',
     paddingVertical: 10,
     borderRadius: 8,
     alignItems: 'center',
   },
   closeBtnText: {
-    color: '#d4af37',
+    color: '#2563eb',
     fontSize: 14,
     fontWeight: '600',
   },

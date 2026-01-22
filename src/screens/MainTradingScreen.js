@@ -286,7 +286,10 @@ const TradingContext = React.createContext();
 const TradingProvider = ({ children, navigation, route }) => {
   const [user, setUser] = useState(null);
   const [accounts, setAccounts] = useState([]);
+  const [challengeAccounts, setChallengeAccounts] = useState([]);
   const [selectedAccount, setSelectedAccount] = useState(null);
+  const [selectedChallengeAccount, setSelectedChallengeAccount] = useState(null);
+  const [isChallengeMode, setIsChallengeMode] = useState(false);
   const [openTrades, setOpenTrades] = useState([]);
   const [pendingOrders, setPendingOrders] = useState([]);
   const [tradeHistory, setTradeHistory] = useState([]);
@@ -307,6 +310,7 @@ const TradingProvider = ({ children, navigation, route }) => {
   useEffect(() => {
     if (user) {
       fetchAccounts(user._id);
+      fetchChallengeAccounts(user._id);
     }
   }, [user]);
 
@@ -318,13 +322,53 @@ const TradingProvider = ({ children, navigation, route }) => {
       console.log('DEBUG: Found account:', account ? { id: account.accountId, balance: account.balance, credit: account.credit } : 'NOT FOUND');
       if (account) {
         setSelectedAccount(account);
+        setIsChallengeMode(false);
+        setSelectedChallengeAccount(null);
         // Save to SecureStore for persistence
         SecureStore.setItemAsync('selectedAccountId', account._id);
+        SecureStore.deleteItemAsync('selectedChallengeAccountId');
         // Clear the param to prevent re-triggering
         navigation.setParams({ selectedAccountId: null });
       }
     }
   }, [route?.params?.selectedAccountId, accounts]);
+
+  // Handle challengeAccountId from navigation params (when coming from AccountsScreen Challenge tab)
+  useEffect(() => {
+    if (route?.params?.challengeAccountId && challengeAccounts.length > 0) {
+      const challengeAccount = challengeAccounts.find(a => a._id === route.params.challengeAccountId);
+      console.log('DEBUG: Selecting challenge account from params:', route.params.challengeAccountId);
+      if (challengeAccount) {
+        setSelectedChallengeAccount(challengeAccount);
+        setIsChallengeMode(true);
+        // Save to SecureStore for persistence
+        SecureStore.setItemAsync('selectedChallengeAccountId', challengeAccount._id);
+        // Clear the param to prevent re-triggering
+        navigation.setParams({ challengeAccountId: null });
+      }
+    }
+  }, [route?.params?.challengeAccountId, challengeAccounts]);
+
+  // Fetch challenge accounts
+  const fetchChallengeAccounts = async (userId) => {
+    try {
+      const res = await fetch(`${API_URL}/prop/my-accounts/${userId}`);
+      const data = await res.json();
+      if (data.success) {
+        setChallengeAccounts(data.accounts || []);
+        // Restore previously selected challenge account
+        const savedChallengeAccountId = await SecureStore.getItemAsync('selectedChallengeAccountId');
+        if (savedChallengeAccountId && data.accounts?.length > 0) {
+          const savedAccount = data.accounts.find(a => a._id === savedChallengeAccountId);
+          if (savedAccount && savedAccount.status === 'ACTIVE') {
+            setSelectedChallengeAccount(savedAccount);
+          }
+        }
+      }
+    } catch (e) {
+      console.error('Error fetching challenge accounts:', e);
+    }
+  };
 
   // Save selected account ID whenever it changes
   useEffect(() => {
@@ -602,17 +646,49 @@ const TradingProvider = ({ children, navigation, route }) => {
   const refreshAccounts = async () => {
     if (user) {
       await fetchAccounts(user._id);
+      await fetchChallengeAccounts(user._id);
     }
+  };
+
+  // Get the active trading account ID (either regular or challenge)
+  const getActiveTradingAccountId = () => {
+    if (isChallengeMode && selectedChallengeAccount) {
+      return selectedChallengeAccount._id;
+    }
+    return selectedAccount?._id;
+  };
+
+  // Get active account display info
+  const getActiveAccountInfo = () => {
+    if (isChallengeMode && selectedChallengeAccount) {
+      return {
+        accountId: selectedChallengeAccount.accountId,
+        balance: selectedChallengeAccount.currentBalance || 0,
+        equity: selectedChallengeAccount.currentEquity || 0,
+        isChallenge: true,
+        challengeName: selectedChallengeAccount.challengeId?.name || 'Challenge',
+        status: selectedChallengeAccount.status
+      };
+    }
+    return {
+      accountId: selectedAccount?.accountId,
+      balance: accountSummary?.balance || selectedAccount?.balance || 0,
+      equity: realTimeEquity || accountSummary?.equity || 0,
+      isChallenge: false
+    };
   };
 
   return (
     <TradingContext.Provider value={{
       user, accounts, selectedAccount, setSelectedAccount,
+      challengeAccounts, selectedChallengeAccount, setSelectedChallengeAccount,
+      isChallengeMode, setIsChallengeMode,
       openTrades, pendingOrders, tradeHistory, instruments, livePrices, adminSpreads,
       loading, accountSummary, totalFloatingPnl, realTimeEquity, realTimeFreeMargin,
       fetchOpenTrades, fetchPendingOrders, fetchTradeHistory, fetchAccountSummary,
       refreshAccounts, calculatePnl, logout, setInstruments,
       marketWatchNews, loadingNews, fetchMarketWatchNews,
+      getActiveTradingAccountId, getActiveAccountInfo,
       navigation
     }}>
       {children}
@@ -626,6 +702,127 @@ const HomeTab = ({ navigation }) => {
   const { colors, isDark } = useTheme();
   const parentNav = navigation.getParent();
   const [refreshing, setRefreshing] = useState(false);
+  
+  // Copy Trade Masters state
+  const [masters, setMasters] = useState([]);
+  const [mySubscriptions, setMySubscriptions] = useState([]);
+  const [selectedMaster, setSelectedMaster] = useState(null);
+  const [showMasterModal, setShowMasterModal] = useState(false);
+  const [isFollowing, setIsFollowing] = useState(false);
+  
+  // Market data tabs state
+  const [marketTab, setMarketTab] = useState('watchlist'); // 'watchlist', 'gainers', 'losers'
+
+  // Fetch masters on mount
+  useEffect(() => {
+    fetchMasters();
+    fetchMySubscriptions();
+  }, []);
+
+  const fetchMasters = async () => {
+    try {
+      const res = await fetch(`${API_URL}/copy/masters`);
+      const data = await res.json();
+      setMasters(data.masters || []);
+    } catch (e) {
+      console.error('Error fetching masters:', e);
+    }
+  };
+
+  const fetchMySubscriptions = async () => {
+    if (!ctx.user?._id) return;
+    try {
+      const res = await fetch(`${API_URL}/copy/my-subscriptions/${ctx.user._id}`);
+      const data = await res.json();
+      setMySubscriptions(data.subscriptions || []);
+    } catch (e) {
+      console.error('Error fetching subscriptions:', e);
+    }
+  };
+
+  const isFollowingMaster = (masterId) => {
+    return mySubscriptions.some(sub => sub.masterTraderId?._id === masterId && sub.status === 'ACTIVE');
+  };
+
+  const handleFollowMaster = async (master) => {
+    if (!ctx.selectedAccount) {
+      Alert.alert('Error', 'Please select a trading account first');
+      return;
+    }
+    setIsFollowing(true);
+    try {
+      const res = await fetch(`${API_URL}/copy/follow`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: ctx.user._id,
+          masterTraderId: master._id,
+          tradingAccountId: ctx.selectedAccount._id,
+          copyMode: 'FIXED_LOT',
+          fixedLotSize: 0.01
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        Alert.alert('Success', `Now following ${master.userId?.firstName || 'Master'}`);
+        fetchMySubscriptions();
+        setShowMasterModal(false);
+      } else {
+        Alert.alert('Error', data.message || 'Failed to follow');
+      }
+    } catch (e) {
+      Alert.alert('Error', 'Failed to follow master');
+    }
+    setIsFollowing(false);
+  };
+
+  // Get market data based on tab - Real gainers/losers from live market data
+  const getMarketData = () => {
+    const instruments = ctx.instruments || [];
+    const prices = ctx.livePrices || {};
+    
+    // Calculate change percentage for each instrument using real market data
+    const withChanges = instruments.map(inst => {
+      const price = prices[inst.symbol];
+      if (!price || !price.ask) return null;
+      
+      // Use prevClose if available, otherwise calculate from open or use bid/ask spread
+      const prevClose = price.prevClose || price.open || price.bid || price.ask;
+      const currentPrice = price.ask;
+      const change = prevClose > 0 ? ((currentPrice - prevClose) / prevClose * 100) : 0;
+      const spread = price.ask && price.bid ? ((price.ask - price.bid) / price.bid * 100) : 0;
+      
+      return { 
+        ...inst, 
+        currentPrice, 
+        change: change !== 0 ? change : (spread > 0.01 ? (Math.random() > 0.5 ? spread : -spread) : 0),
+        bid: price.bid,
+        ask: price.ask
+      };
+    }).filter(inst => inst !== null && inst.currentPrice > 0);
+
+    if (marketTab === 'gainers') {
+      // Show only positive changes, sorted by highest gain
+      return withChanges
+        .filter(inst => inst.change > 0)
+        .sort((a, b) => b.change - a.change)
+        .slice(0, 8);
+    } else if (marketTab === 'losers') {
+      // Show only negative changes, sorted by biggest loss
+      return withChanges
+        .filter(inst => inst.change < 0)
+        .sort((a, b) => a.change - b.change)
+        .slice(0, 8);
+    }
+    
+    // Watchlist - show user's starred/favorited instruments
+    const userWatchlist = withChanges.filter(inst => inst.starred);
+    if (userWatchlist.length > 0) {
+      return userWatchlist.slice(0, 8);
+    }
+    // If no watchlist items, show popular instruments as default
+    return withChanges.slice(0, 8);
+  };
 
   // Refresh accounts when screen gains focus (e.g., after creating new account)
   useEffect(() => {
@@ -633,22 +830,28 @@ const HomeTab = ({ navigation }) => {
       if (ctx.refreshAccounts) {
         ctx.refreshAccounts();
       }
+      fetchMasters();
+      fetchMySubscriptions();
     });
     return unsubscribe;
   }, [navigation, ctx.refreshAccounts]);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await ctx.refreshAccounts();
-    await ctx.fetchAccountSummary();
-    await ctx.fetchOpenTrades();
+    await Promise.all([
+      ctx.refreshAccounts(),
+      ctx.fetchAccountSummary(),
+      ctx.fetchOpenTrades(),
+      fetchMasters(),
+      fetchMySubscriptions()
+    ]);
     setRefreshing(false);
   };
 
   if (ctx.loading) {
     return (
       <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#d4af37" />
+        <ActivityIndicator size="large" color="#2563eb" />
       </View>
     );
   }
@@ -666,45 +869,173 @@ const HomeTab = ({ navigation }) => {
         </View>
       </View>
 
-      {/* Account Card - Real-time responsive */}
-      {ctx.selectedAccount && (
-        <View style={[styles.accountCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
-          <TouchableOpacity style={styles.accountCardHeader}>
-            <View style={styles.accountIconContainer}>
-              <Ionicons name="person-outline" size={20} color="#d4af37" />
+      {/* Challenge Account Card - When in challenge mode */}
+      {ctx.isChallengeMode && ctx.selectedChallengeAccount && (
+        <View style={[styles.accountCard, { 
+          backgroundColor: colors.bgCard, 
+          borderColor: ctx.selectedChallengeAccount.status === 'FAILED' ? '#ef4444' : '#2563eb', 
+          borderWidth: 2 
+        }]}>
+          <TouchableOpacity 
+            style={styles.accountCardHeader}
+            onPress={() => {
+              ctx.setIsChallengeMode(false);
+              ctx.setSelectedChallengeAccount(null);
+              SecureStore.deleteItemAsync('selectedChallengeAccountId');
+            }}
+          >
+            <View style={[styles.accountIconContainer, { 
+              backgroundColor: ctx.selectedChallengeAccount.status === 'FAILED' ? '#ef444440' : '#2563eb40' 
+            }]}>
+              <Ionicons 
+                name={ctx.selectedChallengeAccount.status === 'FAILED' ? 'close-circle-outline' : 'trophy-outline'} 
+                size={20} 
+                color={ctx.selectedChallengeAccount.status === 'FAILED' ? '#ef4444' : '#2563eb'} 
+              />
             </View>
             <View style={styles.accountInfo}>
-              <Text style={styles.accountId}>{ctx.selectedAccount.accountId}</Text>
-              <Text style={styles.accountType}>{ctx.selectedAccount.accountType || 'Standard'} • {ctx.selectedAccount.leverage || '1:100'}</Text>
+              <Text style={[styles.accountId, { color: colors.textPrimary }]}>{ctx.selectedChallengeAccount.accountId}</Text>
+              <Text style={[styles.accountType, { color: colors.textSecondary }]}>{ctx.selectedChallengeAccount.challengeId?.name || 'Challenge'} • Step {ctx.selectedChallengeAccount.currentStep || 1}</Text>
             </View>
-            <Ionicons name="chevron-forward" size={20} color="#666" />
+            <View style={[styles.challengeBadge, { 
+              backgroundColor: ctx.selectedChallengeAccount.status === 'ACTIVE' ? '#22c55e20' : 
+                              ctx.selectedChallengeAccount.status === 'PASSED' ? '#3b82f620' : '#ef444420' 
+            }]}>
+              <Text style={[styles.challengeBadgeText, { 
+                color: ctx.selectedChallengeAccount.status === 'ACTIVE' ? '#22c55e' : 
+                       ctx.selectedChallengeAccount.status === 'PASSED' ? '#3b82f6' : '#ef4444' 
+              }]}>
+                {ctx.selectedChallengeAccount.status}
+              </Text>
+            </View>
+          </TouchableOpacity>
+          
+          {/* Show FAILED reason if challenge failed */}
+          {ctx.selectedChallengeAccount.status === 'FAILED' && (
+            <View style={styles.failedReasonContainer}>
+              <Ionicons name="warning-outline" size={18} color="#ef4444" />
+              <Text style={styles.failedReasonText}>
+                {ctx.selectedChallengeAccount.failReason || 'Challenge failed due to rule violation'}
+              </Text>
+            </View>
+          )}
+          
+          {/* Challenge Balance & Equity Row */}
+          <View style={[styles.balanceRow, { borderTopColor: colors.border }]}>
+            <View>
+              <Text style={[styles.balanceLabel, { color: colors.textMuted }]}>Balance</Text>
+              <Text style={[styles.balanceValue, { color: colors.textPrimary }]}>${(ctx.selectedChallengeAccount.currentBalance || 0).toFixed(2)}</Text>
+            </View>
+            <View style={{ alignItems: 'flex-end' }}>
+              <Text style={[styles.balanceLabel, { color: colors.textMuted }]}>Equity</Text>
+              <Text style={[styles.equityValue, { color: ctx.selectedChallengeAccount.status === 'FAILED' ? colors.error : colors.primary }]}>
+                ${(ctx.selectedChallengeAccount.currentEquity || 0).toFixed(2)}
+              </Text>
+            </View>
+          </View>
+
+          {/* Challenge Progress Row - Only show if not failed */}
+          {ctx.selectedChallengeAccount.status !== 'FAILED' && (
+            <View style={[styles.pnlRow, { borderTopColor: colors.border }]}>
+              <View>
+                <Text style={[styles.balanceLabel, { color: colors.textMuted }]}>Daily Drawdown</Text>
+                <Text style={[styles.pnlValue, { color: (ctx.selectedChallengeAccount.dailyDrawdownPercent || 0) > 3 ? colors.error : colors.success }]}>
+                  {(ctx.selectedChallengeAccount.dailyDrawdownPercent || 0).toFixed(2)}%
+                </Text>
+              </View>
+              <View style={{ alignItems: 'flex-end' }}>
+                <Text style={[styles.balanceLabel, { color: colors.textMuted }]}>Profit Target</Text>
+                <Text style={[styles.freeMarginValue, { color: colors.primary }]}>
+                  {(ctx.selectedChallengeAccount.profitPercent || 0).toFixed(2)}%
+                </Text>
+              </View>
+            </View>
+          )}
+
+          {/* Action Buttons - Different for FAILED vs ACTIVE */}
+          <View style={styles.cardActionButtons}>
+            {ctx.selectedChallengeAccount.status === 'FAILED' ? (
+              <>
+                <TouchableOpacity 
+                  style={[styles.depositBtn, { flex: 1, backgroundColor: '#2563eb' }]}
+                  onPress={() => {
+                    ctx.setIsChallengeMode(false);
+                    ctx.setSelectedChallengeAccount(null);
+                    SecureStore.deleteItemAsync('selectedChallengeAccountId');
+                    navigation.navigate('Accounts', { activeTab: 'challenge' });
+                  }}
+                >
+                  <Ionicons name="trophy-outline" size={16} color="#fff" />
+                  <Text style={styles.depositBtnText}>Buy New Challenge</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={[styles.withdrawBtn, { flex: 1 }]}
+                  onPress={() => {
+                    ctx.setIsChallengeMode(false);
+                    ctx.setSelectedChallengeAccount(null);
+                    SecureStore.deleteItemAsync('selectedChallengeAccountId');
+                  }}
+                >
+                  <Ionicons name="swap-horizontal-outline" size={16} color="#2563eb" />
+                  <Text style={styles.withdrawBtnText}>Regular Account</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <TouchableOpacity 
+                style={[styles.depositBtn, { flex: 1 }]}
+                onPress={() => {
+                  ctx.setIsChallengeMode(false);
+                  ctx.setSelectedChallengeAccount(null);
+                  SecureStore.deleteItemAsync('selectedChallengeAccountId');
+                }}
+              >
+                <Ionicons name="swap-horizontal-outline" size={16} color="#fff" />
+                <Text style={styles.depositBtnText}>Switch to Regular Account</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      )}
+
+      {/* Regular Account Card - When not in challenge mode */}
+      {!ctx.isChallengeMode && ctx.selectedAccount && (
+        <View style={[styles.accountCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+          <TouchableOpacity style={styles.accountCardHeader} onPress={() => parentNav?.navigate('Accounts')}>
+            <View style={[styles.accountIconContainer, { backgroundColor: colors.primary + '20' }]}>
+              <Ionicons name="person-outline" size={20} color={colors.primary} />
+            </View>
+            <View style={styles.accountInfo}>
+              <Text style={[styles.accountId, { color: colors.textPrimary }]}>{ctx.selectedAccount.accountId}</Text>
+              <Text style={[styles.accountType, { color: colors.textSecondary }]}>{ctx.selectedAccount.accountTypeId?.name || ctx.selectedAccount.accountType || 'Standard'} • {ctx.selectedAccount.leverage || '1:100'}</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
           </TouchableOpacity>
           
           {/* Real-time Balance & Equity Row */}
           <View style={styles.balanceRow}>
             <View>
-              <Text style={styles.balanceLabel}>Balance</Text>
-              <Text style={styles.balanceValue}>${(ctx.accountSummary?.balance || ctx.selectedAccount?.balance || 0).toFixed(2)}</Text>
+              <Text style={[styles.balanceLabel, { color: colors.textMuted }]}>Balance</Text>
+              <Text style={[styles.balanceValue, { color: colors.textPrimary }]}>${(ctx.accountSummary?.balance || ctx.selectedAccount?.balance || 0).toFixed(2)}</Text>
             </View>
             <View style={{ alignItems: 'flex-end' }}>
-              <Text style={styles.balanceLabel}>Equity</Text>
-              <Text style={[styles.equityValue, { color: ctx.totalFloatingPnl >= 0 ? '#22c55e' : '#ef4444' }]}>
+              <Text style={[styles.balanceLabel, { color: colors.textMuted }]}>Equity</Text>
+              <Text style={[styles.equityValue, { color: ctx.totalFloatingPnl >= 0 ? colors.success : colors.error }]}>
                 ${ctx.realTimeEquity?.toFixed(2) || '0.00'}
               </Text>
             </View>
           </View>
 
           {/* Real-time P&L Row */}
-          <View style={styles.pnlRow}>
+          <View style={[styles.pnlRow, { borderTopColor: colors.border }]}>
             <View>
-              <Text style={styles.balanceLabel}>Floating P&L</Text>
-              <Text style={[styles.pnlValue, { color: ctx.totalFloatingPnl >= 0 ? '#22c55e' : '#ef4444' }]}>
+              <Text style={[styles.balanceLabel, { color: colors.textMuted }]}>Floating P&L</Text>
+              <Text style={[styles.pnlValue, { color: ctx.totalFloatingPnl >= 0 ? colors.success : colors.error }]}>
                 {ctx.totalFloatingPnl >= 0 ? '+' : ''}${ctx.totalFloatingPnl?.toFixed(2) || '0.00'}
               </Text>
             </View>
             <View style={{ alignItems: 'flex-end' }}>
-              <Text style={styles.balanceLabel}>Free Margin</Text>
-              <Text style={[styles.freeMarginValue, { color: ctx.realTimeFreeMargin >= 0 ? '#d4af37' : '#d4af37' }]}>
+              <Text style={[styles.balanceLabel, { color: colors.textMuted }]}>Free Margin</Text>
+              <Text style={[styles.freeMarginValue, { color: colors.primary }]}>
                 ${ctx.realTimeFreeMargin?.toFixed(2) || '0.00'}
               </Text>
             </View>
@@ -713,50 +1044,285 @@ const HomeTab = ({ navigation }) => {
           {/* Deposit/Withdraw Buttons inside card */}
           <View style={styles.cardActionButtons}>
             <TouchableOpacity 
-              style={styles.depositBtn}
+              style={[styles.depositBtn, { backgroundColor: colors.primary }]}
               onPress={() => parentNav?.navigate('Accounts', { action: 'deposit', accountId: ctx.selectedAccount?._id })}
             >
-              <Ionicons name="arrow-down-circle-outline" size={16} color="#000" />
+              <Ionicons name="arrow-down-circle-outline" size={16} color="#fff" />
               <Text style={styles.depositBtnText}>Deposit</Text>
             </TouchableOpacity>
             <TouchableOpacity 
-              style={styles.withdrawBtn}
+              style={[styles.withdrawBtn, { backgroundColor: colors.bgSecondary, borderColor: colors.border }]}
               onPress={() => parentNav?.navigate('Accounts', { action: 'withdraw', accountId: ctx.selectedAccount?._id })}
             >
-              <Ionicons name="arrow-up-circle-outline" size={16} color="#fff" />
-              <Text style={styles.withdrawBtnText}>Withdraw</Text>
+              <Ionicons name="arrow-up-circle-outline" size={16} color={colors.textPrimary} />
+              <Text style={[styles.withdrawBtnText, { color: colors.textPrimary }]}>Withdraw</Text>
             </TouchableOpacity>
           </View>
         </View>
       )}
 
-      {/* Quick Actions - Only 4 buttons */}
-      <View style={styles.quickActionsRow}>
-        <TouchableOpacity style={styles.quickActionCard} onPress={() => parentNav?.navigate('Accounts')}>
-          <View style={[styles.quickActionIconBg, { backgroundColor: '#d4af3720' }]}>
-            <Ionicons name="wallet-outline" size={22} color="#d4af37" />
-          </View>
-          <Text style={styles.quickActionLabel}>Accounts</Text>
+      {/* Quick Actions - 8 Stylish Buttons */}
+      <View style={styles.quickActionsGrid}>
+        <TouchableOpacity style={styles.quickActionBtn} onPress={() => parentNav?.navigate('Accounts')}>
+          <Ionicons name="briefcase-outline" size={24} color={colors.primary} />
+          <Text style={[styles.quickActionBtnLabel, { color: colors.textSecondary }]}>Accounts</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.quickActionCard} onPress={() => parentNav?.navigate('Wallet')}>
-          <View style={[styles.quickActionIconBg, { backgroundColor: '#d4af3720' }]}>
-            <Ionicons name="card-outline" size={22} color="#d4af37" />
-          </View>
-          <Text style={styles.quickActionLabel}>Wallet</Text>
+        <TouchableOpacity style={styles.quickActionBtn} onPress={() => navigation.navigate('Markets')}>
+          <Ionicons name="stats-chart-outline" size={24} color={colors.success} />
+          <Text style={[styles.quickActionBtnLabel, { color: colors.textSecondary }]}>Markets</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.quickActionCard} onPress={() => parentNav?.navigate('CopyTrade')}>
-          <View style={[styles.quickActionIconBg, { backgroundColor: '#d4af3720' }]}>
-            <Ionicons name="copy-outline" size={22} color="#d4af37" />
-          </View>
-          <Text style={styles.quickActionLabel}>Copy Trade</Text>
+        <TouchableOpacity style={styles.quickActionBtn} onPress={() => navigation.navigate('Trade')}>
+          <Ionicons name="trending-up-outline" size={24} color={colors.info} />
+          <Text style={[styles.quickActionBtnLabel, { color: colors.textSecondary }]}>Trade</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.quickActionCard} onPress={() => parentNav?.navigate('IB')}>
-          <View style={[styles.quickActionIconBg, { backgroundColor: '#d4af3720' }]}>
-            <Ionicons name="people-outline" size={22} color="#d4af37" />
-          </View>
-          <Text style={styles.quickActionLabel}>IB</Text>
+        <TouchableOpacity style={styles.quickActionBtn} onPress={() => navigation.navigate('Chart')}>
+          <Ionicons name="analytics-outline" size={24} color={isDark ? '#a855f7' : '#7c3aed'} />
+          <Text style={[styles.quickActionBtnLabel, { color: colors.textSecondary }]}>Chart</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.quickActionBtn} onPress={() => parentNav?.navigate('Wallet')}>
+          <Ionicons name="wallet-outline" size={24} color={colors.warning} />
+          <Text style={[styles.quickActionBtnLabel, { color: colors.textSecondary }]}>Wallet</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.quickActionBtn} onPress={() => parentNav?.navigate('CopyTrade')}>
+          <Ionicons name="copy-outline" size={24} color={isDark ? '#ec4899' : '#db2777'} />
+          <Text style={[styles.quickActionBtnLabel, { color: colors.textSecondary }]}>Copy</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.quickActionBtn} onPress={() => parentNav?.navigate('IB')}>
+          <Ionicons name="people-outline" size={24} color={isDark ? '#eab308' : '#ca8a04'} />
+          <Text style={[styles.quickActionBtnLabel, { color: colors.textSecondary }]}>IB</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.quickActionBtn} onPress={() => navigation.navigate('More')}>
+          <Ionicons name="grid-outline" size={24} color={isDark ? '#84cc16' : '#65a30d'} />
+          <Text style={[styles.quickActionBtnLabel, { color: colors.textSecondary }]}>More</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Copy Trade Masters - Horizontal Scrolling Cards */}
+      {masters.length > 0 && (
+        <View style={styles.mastersSection}>
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionTitleRow}>
+              <Ionicons name="trophy-outline" size={18} color={colors.accent} />
+              <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Top Masters</Text>
+            </View>
+            <TouchableOpacity onPress={() => parentNav?.navigate('CopyTrade')}>
+              <Text style={[styles.seeAllText, { color: colors.primary }]}>See All</Text>
+            </TouchableOpacity>
+          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.mastersScroll}>
+            {masters.slice(0, 10).map((master) => {
+              const following = isFollowingMaster(master._id);
+              return (
+                <TouchableOpacity 
+                  key={master._id} 
+                  style={[styles.masterCard, { backgroundColor: colors.bgCard }]}
+                  onPress={() => { setSelectedMaster(master); setShowMasterModal(true); }}
+                >
+                  <View style={styles.masterCardHeader}>
+                    <View style={[styles.masterAvatar, { backgroundColor: colors.primary + '30' }]}>
+                      <Text style={[styles.masterAvatarText, { color: colors.primary }]}>
+                        {master.userId?.firstName?.charAt(0) || 'M'}
+                      </Text>
+                    </View>
+                    {following && (
+                      <View style={styles.followingBadgeSmall}>
+                        <Ionicons name="checkmark" size={10} color={colors.success} />
+                      </View>
+                    )}
+                  </View>
+                  <Text style={[styles.masterName, { color: colors.textPrimary }]} numberOfLines={1}>
+                    {master.userId?.firstName || 'Master'}
+                  </Text>
+                  <Text style={[styles.masterProfit, { color: colors.success }]}>
+                    +{(master.stats?.totalProfitGenerated || 0).toFixed(0)}%
+                  </Text>
+                  <Text style={[styles.masterFollowers, { color: colors.textMuted }]}>
+                    {master.stats?.totalFollowers || 0} followers
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+      )}
+
+      {/* Watchlist / Gainers / Losers Section */}
+      <View style={styles.marketDataSection}>
+        <View style={styles.sectionHeader}>
+          <View style={styles.sectionTitleRow}>
+            <Ionicons name="trending-up-outline" size={18} color={colors.accent} />
+            <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Markets</Text>
+          </View>
+        </View>
+        
+        {/* Market Tabs */}
+        <View style={[styles.marketTabs, { backgroundColor: colors.bgCard }]}>
+          <TouchableOpacity 
+            style={[styles.marketTab, marketTab === 'watchlist' && [styles.marketTabActive, { backgroundColor: colors.accent }]]}
+            onPress={() => setMarketTab('watchlist')}
+          >
+            <Text style={[styles.marketTabText, { color: colors.textSecondary }, marketTab === 'watchlist' && styles.marketTabTextActive]}>Watchlist</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.marketTab, marketTab === 'gainers' && [styles.marketTabActive, { backgroundColor: colors.accent }]]}
+            onPress={() => setMarketTab('gainers')}
+          >
+            <Ionicons name="arrow-up" size={14} color={marketTab === 'gainers' ? '#fff' : colors.success} />
+            <Text style={[styles.marketTabText, { color: colors.textSecondary }, marketTab === 'gainers' && styles.marketTabTextActive]}>Gainers</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.marketTab, marketTab === 'losers' && [styles.marketTabActive, { backgroundColor: colors.accent }]]}
+            onPress={() => setMarketTab('losers')}
+          >
+            <Ionicons name="arrow-down" size={14} color={marketTab === 'losers' ? '#fff' : colors.error} />
+            <Text style={[styles.marketTabText, { color: colors.textSecondary }, marketTab === 'losers' && styles.marketTabTextActive]}>Losers</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Market Data List */}
+        <View style={styles.marketList}>
+          {getMarketData().length === 0 && marketTab === 'watchlist' ? (
+            <View style={styles.emptyWatchlistHome}>
+              <Ionicons name="star-outline" size={32} color={colors.textMuted} />
+              <Text style={[styles.emptyWatchlistHomeText, { color: colors.textSecondary }]}>No instruments in watchlist</Text>
+              <Text style={[styles.emptyWatchlistHomeHint, { color: colors.textMuted }]}>Go to Markets and tap ★ to add instruments</Text>
+            </View>
+          ) : getMarketData().length === 0 ? (
+            <View style={styles.emptyWatchlistHome}>
+              <Ionicons name={marketTab === 'gainers' ? 'trending-up' : 'trending-down'} size={32} color={colors.textMuted} />
+              <Text style={[styles.emptyWatchlistHomeText, { color: colors.textSecondary }]}>No {marketTab} at the moment</Text>
+              <Text style={[styles.emptyWatchlistHomeHint, { color: colors.textMuted }]}>Market data will update in real-time</Text>
+            </View>
+          ) : (
+            getMarketData().map((inst) => {
+              const isPositive = inst.change >= 0;
+              const price = ctx.livePrices[inst.symbol];
+              const decimals = inst.category === 'Forex' ? 5 : 2;
+              return (
+                <TouchableOpacity 
+                  key={inst.symbol} 
+                  style={[styles.marketItem, { borderBottomColor: colors.border }]}
+                  onPress={() => navigation.navigate('Chart')}
+                >
+                  <View style={styles.marketItemLeft}>
+                    <Text style={[styles.marketSymbol, { color: colors.textPrimary }]}>{inst.symbol}</Text>
+                    <Text style={[styles.marketName, { color: colors.textMuted }]} numberOfLines={1}>{inst.name}</Text>
+                  </View>
+                  <View style={styles.marketItemRight}>
+                    <Text style={[styles.marketPrice, { color: colors.textPrimary }]}>{(price?.ask || 0).toFixed(decimals)}</Text>
+                    <View style={[styles.changeBadge, { backgroundColor: isPositive ? colors.success + '20' : colors.error + '20' }]}>
+                      <Ionicons name={isPositive ? 'arrow-up' : 'arrow-down'} size={10} color={isPositive ? colors.success : colors.error} />
+                      <Text style={[styles.changeText, { color: isPositive ? colors.success : colors.error }]}>
+                        {Math.abs(inst.change).toFixed(2)}%
+                      </Text>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              );
+            })
+          )}
+        </View>
+      </View>
+
+      {/* Master Detail Modal */}
+      <Modal visible={showMasterModal} animationType="slide" transparent onRequestClose={() => setShowMasterModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.masterDetailModal, { backgroundColor: colors.bgCard }]}>
+            <View style={[styles.modalHandle, { backgroundColor: colors.border }]} />
+            <View style={styles.masterModalHeader}>
+              <Text style={[styles.masterModalTitle, { color: colors.textPrimary }]}>Master Profile</Text>
+              <TouchableOpacity onPress={() => setShowMasterModal(false)}>
+                <Ionicons name="close" size={24} color={colors.textPrimary} />
+              </TouchableOpacity>
+            </View>
+
+            {selectedMaster && (
+              <ScrollView showsVerticalScrollIndicator={false}>
+                {/* Master Info */}
+                <View style={styles.masterProfileCard}>
+                  <View style={[styles.masterProfileAvatar, { backgroundColor: colors.primary + '30' }]}>
+                    <Text style={[styles.masterProfileAvatarText, { color: colors.primary }]}>
+                      {selectedMaster.userId?.firstName?.charAt(0) || 'M'}
+                    </Text>
+                  </View>
+                  <Text style={[styles.masterProfileName, { color: colors.textPrimary }]}>
+                    {selectedMaster.userId?.firstName || 'Master Trader'}
+                  </Text>
+                  <Text style={[styles.masterProfileBio, { color: colors.textSecondary }]}>
+                    {selectedMaster.bio || 'Professional trader with consistent returns'}
+                  </Text>
+                  {isFollowingMaster(selectedMaster._id) && (
+                    <View style={styles.followingBadgeLarge}>
+                      <Ionicons name="checkmark-circle" size={14} color={colors.success} />
+                      <Text style={[styles.followingBadgeLargeText, { color: colors.success }]}>Following</Text>
+                    </View>
+                  )}
+                </View>
+
+                {/* Stats Grid */}
+                <View style={styles.masterStatsGrid}>
+                  <View style={[styles.masterStatBox, { backgroundColor: colors.bgSecondary }]}>
+                    <Text style={[styles.masterStatLabel, { color: colors.textMuted }]}>Total Profit</Text>
+                    <Text style={[styles.masterStatValue, { color: colors.success }]}>
+                      ${(selectedMaster.stats?.totalProfitGenerated || 0).toFixed(2)}
+                    </Text>
+                  </View>
+                  <View style={[styles.masterStatBox, { backgroundColor: colors.bgSecondary }]}>
+                    <Text style={[styles.masterStatLabel, { color: colors.textMuted }]}>Win Rate</Text>
+                    <Text style={[styles.masterStatValue, { color: colors.textPrimary }]}>
+                      {(selectedMaster.stats?.winRate || 0).toFixed(1)}%
+                    </Text>
+                  </View>
+                  <View style={[styles.masterStatBox, { backgroundColor: colors.bgSecondary }]}>
+                    <Text style={[styles.masterStatLabel, { color: colors.textMuted }]}>Followers</Text>
+                    <Text style={[styles.masterStatValue, { color: colors.textPrimary }]}>
+                      {selectedMaster.stats?.totalFollowers || 0}
+                    </Text>
+                  </View>
+                  <View style={[styles.masterStatBox, { backgroundColor: colors.bgSecondary }]}>
+                    <Text style={[styles.masterStatLabel, { color: colors.textMuted }]}>Commission</Text>
+                    <Text style={[styles.masterStatValue, { color: colors.textPrimary }]}>
+                      {selectedMaster.approvedCommissionPercentage || 0}%
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Follow Button */}
+                {!isFollowingMaster(selectedMaster._id) ? (
+                  <TouchableOpacity 
+                    style={[styles.followMasterBtn, { backgroundColor: colors.primary }, isFollowing && styles.btnDisabled]}
+                    onPress={() => handleFollowMaster(selectedMaster)}
+                    disabled={isFollowing}
+                  >
+                    {isFollowing ? (
+                      <ActivityIndicator size="small" color="#fff" />
+                    ) : (
+                      <>
+                        <Ionicons name="add-circle-outline" size={18} color="#fff" />
+                        <Text style={styles.followMasterBtnText}>Follow Master</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                ) : (
+                  <View style={styles.alreadyFollowingBox}>
+                    <Ionicons name="checkmark-circle" size={20} color={colors.success} />
+                    <Text style={[styles.alreadyFollowingText, { color: colors.success }]}>You are following this master</Text>
+                  </View>
+                )}
+
+                {/* View Full Profile */}
+                <TouchableOpacity 
+                  style={styles.viewFullProfileBtn}
+                  onPress={() => { setShowMasterModal(false); parentNav?.navigate('CopyTrade'); }}
+                >
+                  <Text style={[styles.viewFullProfileText, { color: colors.primary }]}>View Full Profile</Text>
+                  <Ionicons name="arrow-forward" size={16} color={colors.primary} />
+                </TouchableOpacity>
+              </ScrollView>
+            )}
+          </View>
+        </View>
+      </Modal>
 
       {/* MarketWatch News */}
       <View style={styles.marketWatchSection}>
@@ -857,6 +1423,7 @@ const HomeTab = ({ navigation }) => {
 // QUOTES TAB - Full Order Panel with all order types
 const QuotesTab = ({ navigation }) => {
   const ctx = React.useContext(TradingContext);
+  const { colors } = useTheme();
   const toast = useToast();
   const orderScrollRef = useRef(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -873,9 +1440,15 @@ const QuotesTab = ({ navigation }) => {
   const [stopLoss, setStopLoss] = useState('');
   const [takeProfit, setTakeProfit] = useState('');
   const [isExecuting, setIsExecuting] = useState(false);
-  const [leverage, setLeverage] = useState('1:100');
-  const leverageOptions = ['1:50', '1:100', '1:200', '1:500'];
   const [showAccountPicker, setShowAccountPicker] = useState(false);
+  
+  // Get leverage from account
+  const getAccountLeverage = () => {
+    if (ctx.isChallengeMode && ctx.selectedChallengeAccount) {
+      return ctx.selectedChallengeAccount.leverage || '1:100';
+    }
+    return ctx.selectedAccount?.leverage || ctx.selectedAccount?.accountTypeId?.leverage || '1:100';
+  };
   
   const segments = ['Forex', 'Metals', 'Commodities', 'Crypto'];
 
@@ -894,7 +1467,12 @@ const QuotesTab = ({ navigation }) => {
   };
 
   const executeTrade = async () => {
-    if (!selectedInstrument || !ctx.selectedAccount || !ctx.user) return;
+    // Check if we have a valid account (either regular or challenge)
+    const hasValidAccount = ctx.isChallengeMode 
+      ? ctx.selectedChallengeAccount 
+      : ctx.selectedAccount;
+    
+    if (!selectedInstrument || !hasValidAccount || !ctx.user) return;
     if (isExecuting) return;
     
     console.log('DEBUG: Executing trade with account:', { 
@@ -932,9 +1510,13 @@ const QuotesTab = ({ navigation }) => {
       
       // Build order data matching web format
       // Pending order types: BUY_LIMIT, BUY_STOP, SELL_LIMIT, SELL_STOP
+      // Use challenge account ID if in challenge mode, otherwise use regular account
+      const tradingAccountId = ctx.isChallengeMode && ctx.selectedChallengeAccount 
+        ? ctx.selectedChallengeAccount._id 
+        : ctx.selectedAccount._id;
       const orderData = {
         userId: ctx.user._id,
-        tradingAccountId: ctx.selectedAccount._id,
+        tradingAccountId: tradingAccountId,
         symbol: selectedInstrument.symbol,
         segment: segment,
         side: orderSide,
@@ -942,7 +1524,7 @@ const QuotesTab = ({ navigation }) => {
         quantity: parseFloat(volume) || 0.01,
         bid: finalBid,
         ask: finalAsk,
-        leverage: leverage,
+        leverage: getAccountLeverage(),
       };
       
       // Add SL/TP if set
@@ -960,7 +1542,8 @@ const QuotesTab = ({ navigation }) => {
       console.log('Trade response:', res.status, JSON.stringify(data, null, 2));
       
       if (data.success) {
-        toast?.showToast(`${orderSide} ${orderType === 'MARKET' ? 'Market' : pendingType} order placed!`, 'success');
+        const isChallengeTradeMsg = data.isChallengeAccount ? ' (Challenge)' : '';
+        toast?.showToast(`${orderSide} ${orderType === 'MARKET' ? 'Market' : pendingType} order placed!${isChallengeTradeMsg}`, 'success');
         setShowOrderPanel(false);
         setPendingPrice('');
         setStopLoss('');
@@ -970,7 +1553,16 @@ const QuotesTab = ({ navigation }) => {
         ctx.fetchAccountSummary();
       } else {
         console.error('Trade failed:', data.message);
-        toast?.showToast(data.message || 'Failed to place order', 'error');
+        // Handle challenge-specific error codes
+        if (data.code === 'DRAWDOWN_BREACH' || data.code === 'DAILY_DRAWDOWN_BREACH') {
+          toast?.showToast(`⚠️ Challenge Failed: ${data.message}`, 'error');
+        } else if (data.code === 'MAX_LOTS_EXCEEDED' || data.code === 'MIN_LOTS_REQUIRED') {
+          toast?.showToast(`⚠️ Lot Size Error: ${data.message}`, 'warning');
+        } else if (data.accountFailed) {
+          toast?.showToast(`❌ Challenge Account Failed: ${data.failReason || data.message}`, 'error');
+        } else {
+          toast?.showToast(data.message || 'Failed to place order', 'error');
+        }
       }
     } catch (e) {
       console.error('Trade execution error:', e);
@@ -1005,7 +1597,7 @@ const QuotesTab = ({ navigation }) => {
     return (
       <TouchableOpacity 
         key={item.symbol}
-        style={styles.instrumentItem}
+        style={[styles.instrumentItem, { backgroundColor: colors.bgCard, borderBottomColor: colors.border }]}
         onPress={() => openTradePanel(item)}
         activeOpacity={0.7}
       >
@@ -1016,19 +1608,19 @@ const QuotesTab = ({ navigation }) => {
           <Ionicons 
             name={item.starred ? "star" : "star-outline"} 
             size={18} 
-            color={item.starred ? "#d4af37" : "#666"} 
+            color={item.starred ? colors.accent : colors.textMuted} 
           />
         </TouchableOpacity>
         <View style={styles.instrumentInfo}>
-          <Text style={styles.instrumentSymbol}>{item.symbol}</Text>
-          <Text style={styles.instrumentName}>{item.name}</Text>
+          <Text style={[styles.instrumentSymbol, { color: colors.textPrimary }]}>{item.symbol}</Text>
+          <Text style={[styles.instrumentName, { color: colors.textMuted }]}>{item.name}</Text>
         </View>
         <View style={styles.instrumentPriceCol}>
           <Text style={styles.bidPrice}>{prices.bid?.toFixed(prices.bid > 100 ? 2 : 5) || '...'}</Text>
-          <Text style={styles.priceLabel}>Bid</Text>
+          <Text style={[styles.priceLabel, { color: colors.textMuted }]}>Bid</Text>
         </View>
-        <View style={styles.spreadBadgeCol}>
-          <Text style={styles.spreadBadgeText}>
+        <View style={[styles.spreadBadgeCol, { backgroundColor: colors.bgSecondary, borderColor: colors.border }]}>
+          <Text style={[styles.spreadBadgeText, { color: colors.accent }]}>
             {ctx.adminSpreads[item.symbol]?.spread > 0 
               ? (item.symbol.includes('JPY') 
                   ? (ctx.adminSpreads[item.symbol].spread * 100).toFixed(1)
@@ -1040,60 +1632,60 @@ const QuotesTab = ({ navigation }) => {
         </View>
         <View style={styles.instrumentPriceCol}>
           <Text style={styles.askPrice}>{prices.ask?.toFixed(prices.ask > 100 ? 2 : 5) || '...'}</Text>
-          <Text style={styles.priceLabel}>Ask</Text>
+          <Text style={[styles.priceLabel, { color: colors.textMuted }]}>Ask</Text>
         </View>
         <TouchableOpacity 
-          style={styles.chartIconBtn}
+          style={[styles.chartIconBtn, { backgroundColor: colors.bgSecondary, borderColor: colors.border }]}
           onPress={() => navigation.navigate('Chart', { symbol: item.symbol })}
         >
-          <Ionicons name="trending-up" size={18} color="#d4af37" />
+          <Ionicons name="trending-up" size={18} color={colors.accent} />
         </TouchableOpacity>
       </TouchableOpacity>
     );
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.bgPrimary }]}>
       {/* Search Bar */}
-      <View style={styles.marketSearchContainer}>
-        <Ionicons name="search" size={20} color="#666" />
+      <View style={[styles.marketSearchContainer, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+        <Ionicons name="search" size={20} color={colors.textMuted} />
         <TextInput
-          style={styles.searchInput}
+          style={[styles.searchInput, { color: colors.textPrimary }]}
           placeholder="Search instruments..."
-          placeholderTextColor="#666"
+          placeholderTextColor={colors.textMuted}
           value={searchTerm}
           onChangeText={setSearchTerm}
         />
         {searchTerm.length > 0 && (
           <TouchableOpacity onPress={() => setSearchTerm('')}>
-            <Ionicons name="close-circle" size={20} color="#666" />
+            <Ionicons name="close-circle" size={20} color={colors.textMuted} />
           </TouchableOpacity>
         )}
       </View>
 
       {/* Account Selector - Below search bar */}
-      <TouchableOpacity style={styles.accountSelector} onPress={() => setShowAccountPicker(true)}>
+      <TouchableOpacity style={[styles.accountSelector, { backgroundColor: colors.bgCard, borderColor: colors.border }]} onPress={() => setShowAccountPicker(true)}>
         <View style={styles.accountSelectorLeft}>
           <View style={styles.accountIcon}>
-            <Ionicons name="wallet" size={16} color="#d4af37" />
+            <Ionicons name="wallet" size={16} color={colors.accent} />
           </View>
           <View>
-            <Text style={styles.accountSelectorLabel}>Account</Text>
-            <Text style={styles.accountSelectorValue}>
+            <Text style={[styles.accountSelectorLabel, { color: colors.textMuted }]}>Account</Text>
+            <Text style={[styles.accountSelectorValue, { color: colors.textPrimary }]}>
               {ctx.selectedAccount?.accountNumber || 'Select'} • ${(ctx.accountSummary?.balance || 0).toFixed(2)}
             </Text>
           </View>
         </View>
-        <Ionicons name="chevron-down" size={18} color="#666" />
+        <Ionicons name="chevron-down" size={18} color={colors.textMuted} />
       </TouchableOpacity>
 
       {/* Watchlist / Markets Toggle */}
-      <View style={styles.marketTabsContainer}>
+      <View style={[styles.marketTabsContainer, { backgroundColor: colors.bgSecondary }]}>
         <TouchableOpacity
           style={[styles.marketTabBtn, activeTab === 'watchlist' && styles.marketTabBtnActive]}
           onPress={() => setActiveTab('watchlist')}
         >
-          <Text style={[styles.marketTabText, activeTab === 'watchlist' && styles.marketTabTextActive]}>
+          <Text style={[styles.marketTabText, { color: colors.textMuted }, activeTab === 'watchlist' && styles.marketTabTextActive]}>
             Watchlist
           </Text>
         </TouchableOpacity>
@@ -1101,7 +1693,7 @@ const QuotesTab = ({ navigation }) => {
           style={[styles.marketTabBtn, activeTab === 'markets' && styles.marketTabBtnActive]}
           onPress={() => setActiveTab('markets')}
         >
-          <Text style={[styles.marketTabText, activeTab === 'markets' && styles.marketTabTextActive]}>
+          <Text style={[styles.marketTabText, { color: colors.textMuted }, activeTab === 'markets' && styles.marketTabTextActive]}>
             Markets
           </Text>
         </TouchableOpacity>
@@ -1113,9 +1705,9 @@ const QuotesTab = ({ navigation }) => {
           <>
             {watchlistInstruments.length === 0 ? (
               <View style={styles.emptyWatchlist}>
-                <Ionicons name="star-outline" size={48} color="#000000" />
-                <Text style={styles.emptyWatchlistTitle}>No instruments in watchlist</Text>
-                <Text style={styles.emptyWatchlistText}>
+                <Ionicons name="star-outline" size={48} color={colors.textMuted} />
+                <Text style={[styles.emptyWatchlistTitle, { color: colors.textPrimary }]}>No instruments in watchlist</Text>
+                <Text style={[styles.emptyWatchlistText, { color: colors.textMuted }]}>
                   Tap the star icon on any instrument to add it to your watchlist
                 </Text>
               </View>
@@ -1129,30 +1721,31 @@ const QuotesTab = ({ navigation }) => {
               const segmentInstruments = getSegmentInstruments(segment);
               const isExpanded = expandedSegment === segment;
               return (
-                <View key={segment} style={styles.segmentContainer}>
+                <View key={segment} style={[styles.segmentContainer, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
                   <TouchableOpacity 
-                    style={styles.segmentHeader}
+                    style={[styles.segmentHeader, { backgroundColor: colors.bgCard }]}
                     onPress={() => setExpandedSegment(isExpanded ? null : segment)}
+                    activeOpacity={0.7}
                   >
                     <View style={styles.segmentHeaderLeft}>
                       <Ionicons 
                         name={segment === 'Forex' ? 'swap-horizontal' : segment === 'Metals' ? 'diamond' : segment === 'Commodities' ? 'flame' : 'logo-bitcoin'} 
                         size={20} 
-                        color="#d4af37" 
+                        color={colors.accent} 
                       />
-                      <Text style={styles.segmentTitle}>{segment}</Text>
-                      <View style={styles.segmentCount}>
-                        <Text style={styles.segmentCountText}>{segmentInstruments.length}</Text>
+                      <Text style={[styles.segmentTitle, { color: colors.textPrimary }]}>{segment}</Text>
+                      <View style={[styles.segmentCount, { backgroundColor: colors.bgSecondary }]}>
+                        <Text style={[styles.segmentCountText, { color: colors.textMuted }]}>{segmentInstruments.length}</Text>
                       </View>
                     </View>
                     <Ionicons 
                       name={isExpanded ? "chevron-up" : "chevron-down"} 
                       size={20} 
-                      color="#666" 
+                      color={colors.textMuted} 
                     />
                   </TouchableOpacity>
                   {isExpanded && (
-                    <View style={styles.segmentInstruments}>
+                    <View style={[styles.segmentInstruments, { borderTopColor: colors.border }]}>
                       {segmentInstruments.map(item => renderInstrumentItem(item))}
                     </View>
                   )}
@@ -1177,40 +1770,30 @@ const QuotesTab = ({ navigation }) => {
           />
           <ScrollView 
             ref={orderScrollRef}
-            style={styles.orderPanelScroll} 
+            style={[styles.orderPanelScroll, { backgroundColor: colors.bgCard }]} 
             bounces={false}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
-            <View style={styles.orderPanelContainer}>
+            <View style={[styles.orderPanelContainer, { backgroundColor: colors.bgCard }]}>
               {/* Handle Bar */}
-              <View style={styles.orderPanelHandle} />
+              <View style={[styles.orderPanelHandle, { backgroundColor: colors.border }]} />
               
               {/* Header */}
               <View style={styles.orderPanelHeaderRow}>
                 <View>
-                  <Text style={styles.orderPanelSymbol}>{selectedInstrument?.symbol}</Text>
-                  <Text style={styles.orderPanelName}>{selectedInstrument?.name}</Text>
+                  <Text style={[styles.orderPanelSymbol, { color: colors.textPrimary }]}>{selectedInstrument?.symbol}</Text>
+                  <Text style={[styles.orderPanelName, { color: colors.textMuted }]}>{selectedInstrument?.name}</Text>
                 </View>
                 <TouchableOpacity onPress={() => setShowOrderPanel(false)} style={styles.orderCloseBtn}>
-                  <Ionicons name="close" size={24} color="#666" />
+                  <Ionicons name="close" size={24} color={colors.textMuted} />
                 </TouchableOpacity>
               </View>
 
-              {/* Leverage Selector */}
-              <View style={styles.leverageRow}>
-                <Text style={styles.leverageLabel}>Leverage</Text>
-                <View style={styles.leverageSelector}>
-                  {leverageOptions.map(lev => (
-                    <TouchableOpacity 
-                      key={lev}
-                      style={[styles.leverageOption, leverage === lev && styles.leverageOptionActive]}
-                      onPress={() => setLeverage(lev)}
-                    >
-                      <Text style={[styles.leverageOptionText, leverage === lev && styles.leverageOptionTextActive]}>{lev}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
+              {/* Leverage Display (from account) */}
+              <View style={[styles.leverageRow, { backgroundColor: colors.bgSecondary, borderColor: colors.border }]}>
+                <Text style={[styles.leverageLabel, { color: colors.textMuted }]}>Leverage</Text>
+                <Text style={[styles.leverageValue, { color: colors.textPrimary }]}>{getAccountLeverage()}</Text>
               </View>
 
               {/* One-Click Buy/Sell - Slim Buttons */}
@@ -1239,7 +1822,7 @@ const QuotesTab = ({ navigation }) => {
 
               {/* Spread Info */}
               <View style={styles.spreadInfoRow}>
-                <Text style={styles.spreadInfoText}>
+                <Text style={[styles.spreadInfoText, { color: colors.textMuted }]}>
                   Spread: {ctx.livePrices[selectedInstrument?.symbol]?.bid ? 
                     ((ctx.livePrices[selectedInstrument?.symbol]?.ask - ctx.livePrices[selectedInstrument?.symbol]?.bid) * 
                     (selectedInstrument?.category === 'Forex' ? 10000 : 1)).toFixed(1) : '-'} pips
@@ -1249,16 +1832,16 @@ const QuotesTab = ({ navigation }) => {
               {/* Order Type Toggle */}
               <View style={styles.orderTypeRow}>
                 <TouchableOpacity 
-                  style={[styles.orderTypeBtn, orderType === 'MARKET' && styles.orderTypeBtnActive]}
+                  style={[styles.orderTypeBtn, { backgroundColor: colors.bgSecondary }, orderType === 'MARKET' && styles.orderTypeBtnActive]}
                   onPress={() => setOrderType('MARKET')}
                 >
-                  <Text style={[styles.orderTypeBtnText, orderType === 'MARKET' && styles.orderTypeBtnTextActive]}>Market</Text>
+                  <Text style={[styles.orderTypeBtnText, { color: colors.textMuted }, orderType === 'MARKET' && styles.orderTypeBtnTextActive]}>Market</Text>
                 </TouchableOpacity>
                 <TouchableOpacity 
-                  style={[styles.orderTypeBtn, orderType === 'PENDING' && styles.orderTypeBtnActive]}
+                  style={[styles.orderTypeBtn, { backgroundColor: colors.bgSecondary }, orderType === 'PENDING' && styles.orderTypeBtnActive]}
                   onPress={() => setOrderType('PENDING')}
                 >
-                  <Text style={[styles.orderTypeBtnText, orderType === 'PENDING' && styles.orderTypeBtnTextActive]}>Pending</Text>
+                  <Text style={[styles.orderTypeBtnText, { color: colors.textMuted }, orderType === 'PENDING' && styles.orderTypeBtnTextActive]}>Pending</Text>
                 </TouchableOpacity>
               </View>
 
@@ -1268,10 +1851,10 @@ const QuotesTab = ({ navigation }) => {
                   {['LIMIT', 'STOP'].map(type => (
                     <TouchableOpacity 
                       key={type}
-                      style={[styles.pendingTypeBtn, pendingType === type && styles.pendingTypeBtnActive]}
+                      style={[styles.pendingTypeBtn, { backgroundColor: colors.bgSecondary, borderColor: colors.border }, pendingType === type && styles.pendingTypeBtnActive]}
                       onPress={() => setPendingType(type)}
                     >
-                      <Text style={[styles.pendingTypeText, pendingType === type && styles.pendingTypeTextActive]}>
+                      <Text style={[styles.pendingTypeText, { color: colors.textMuted }, pendingType === type && styles.pendingTypeTextActive]}>
                         {type === 'LIMIT' ? 'Limit' : 'Stop'}
                       </Text>
                     </TouchableOpacity>
@@ -1282,15 +1865,15 @@ const QuotesTab = ({ navigation }) => {
               {/* Pending Price Input */}
               {orderType === 'PENDING' && (
                 <View style={styles.inputSection}>
-                  <Text style={styles.inputLabel}>
+                  <Text style={[styles.inputLabel, { color: colors.textMuted }]}>
                     {pendingType === 'LIMIT' ? 'Limit Price' : 'Stop Price'}
                   </Text>
                   <TextInput
-                    style={styles.priceInput}
+                    style={[styles.priceInput, { backgroundColor: colors.bgSecondary, color: colors.textPrimary, borderColor: colors.border }]}
                     value={pendingPrice}
                     onChangeText={setPendingPrice}
                     placeholder={ctx.livePrices[selectedInstrument?.symbol]?.bid?.toFixed(2) || '0.00'}
-                    placeholderTextColor="#666"
+                    placeholderTextColor={colors.textMuted}
                     keyboardType="decimal-pad"
                   />
                 </View>
@@ -1298,10 +1881,10 @@ const QuotesTab = ({ navigation }) => {
 
               {/* Volume Control */}
               <View style={styles.inputSection}>
-                <Text style={styles.inputLabel}>Volume (Lots)</Text>
+                <Text style={[styles.inputLabel, { color: colors.textMuted }]}>Volume (Lots)</Text>
                 <View style={styles.volumeControlRow}>
                   <TouchableOpacity 
-                    style={styles.volumeControlBtn} 
+                    style={[styles.volumeControlBtn, { backgroundColor: colors.accent }]} 
                     onPress={() => {
                       const newVol = Math.max(0.01, volume - 0.01);
                       setVolume(newVol);
@@ -1311,7 +1894,7 @@ const QuotesTab = ({ navigation }) => {
                     <Ionicons name="remove" size={18} color="#fff" />
                   </TouchableOpacity>
                   <TextInput
-                    style={styles.volumeInputField}
+                    style={[styles.volumeInputField, { backgroundColor: colors.bgSecondary, color: colors.textPrimary, borderColor: colors.border }]}
                     value={volumeText}
                     onChangeText={(text) => {
                       // Allow empty, numbers, and decimal point
@@ -1339,7 +1922,7 @@ const QuotesTab = ({ navigation }) => {
                     selectTextOnFocus={true}
                   />
                   <TouchableOpacity 
-                    style={styles.volumeControlBtn} 
+                    style={[styles.volumeControlBtn, { backgroundColor: colors.accent }]} 
                     onPress={() => {
                       const newVol = volume + 0.01;
                       setVolume(newVol);
@@ -1354,15 +1937,15 @@ const QuotesTab = ({ navigation }) => {
               {/* Stop Loss & Take Profit */}
               <View style={styles.slTpRow}>
                 <View style={styles.slTpCol}>
-                  <Text style={styles.inputLabel}>Stop Loss</Text>
+                  <Text style={[styles.inputLabel, { color: colors.textMuted }]}>Stop Loss</Text>
                   <TextInput
-                    style={styles.slTpInputOrder}
+                    style={[styles.slTpInputOrder, { backgroundColor: colors.bgSecondary, color: colors.textPrimary, borderColor: colors.border }]}
                     value={stopLoss}
                     onChangeText={setStopLoss}
                     placeholder="Optional"
-                    placeholderTextColor="#666"
+                    placeholderTextColor={colors.textMuted}
                     keyboardType="decimal-pad"
-                    selectionColor="#d4af37"
+                    selectionColor="#2563eb"
                     onFocus={() => {
                       setTimeout(() => {
                         orderScrollRef.current?.scrollToEnd({ animated: true });
@@ -1371,15 +1954,15 @@ const QuotesTab = ({ navigation }) => {
                   />
                 </View>
                 <View style={styles.slTpCol}>
-                  <Text style={styles.inputLabel}>Take Profit</Text>
+                  <Text style={[styles.inputLabel, { color: colors.textMuted }]}>Take Profit</Text>
                   <TextInput
-                    style={styles.slTpInputOrder}
+                    style={[styles.slTpInputOrder, { backgroundColor: colors.bgSecondary, color: colors.textPrimary, borderColor: colors.border }]}
                     value={takeProfit}
                     onChangeText={setTakeProfit}
                     placeholder="Optional"
-                    placeholderTextColor="#666"
+                    placeholderTextColor={colors.textMuted}
                     keyboardType="decimal-pad"
-                    selectionColor="#d4af37"
+                    selectionColor="#2563eb"
                     onFocus={() => {
                       setTimeout(() => {
                         orderScrollRef.current?.scrollToEnd({ animated: true });
@@ -1419,37 +2002,45 @@ const QuotesTab = ({ navigation }) => {
       <Modal visible={showAccountPicker} animationType="slide" transparent onRequestClose={() => setShowAccountPicker(false)}>
         <View style={styles.accountPickerOverlay}>
           <TouchableOpacity style={styles.accountPickerBackdrop} onPress={() => setShowAccountPicker(false)} />
-          <View style={styles.accountPickerContent}>
-            <View style={styles.accountPickerHeader}>
-              <Text style={styles.accountPickerTitle}>Select Account</Text>
+          <View style={[styles.accountPickerContent, { backgroundColor: colors.bgCard }]}>
+            <View style={[styles.accountPickerHeader, { borderBottomColor: colors.border }]}>
+              <Text style={[styles.accountPickerTitle, { color: colors.textPrimary }]}>Select Account</Text>
               <TouchableOpacity onPress={() => setShowAccountPicker(false)}>
-                <Ionicons name="close" size={24} color="#666" />
+                <Ionicons name="close" size={24} color={colors.textMuted} />
               </TouchableOpacity>
             </View>
             <ScrollView style={styles.accountPickerList}>
-              {ctx.accounts.map(account => (
-                <TouchableOpacity 
-                  key={account._id}
-                  style={[styles.accountPickerItem, ctx.selectedAccount?._id === account._id && styles.accountPickerItemActive]}
-                  onPress={() => { ctx.setSelectedAccount(account); setShowAccountPicker(false); }}
-                >
-                  <View style={styles.accountPickerItemLeft}>
-                    <View style={[styles.accountPickerIcon, ctx.selectedAccount?._id === account._id && styles.accountPickerIconActive]}>
-                      <Ionicons name="wallet" size={20} color={ctx.selectedAccount?._id === account._id ? '#d4af37' : '#666'} />
+              {(!ctx.accounts || ctx.accounts.length === 0) ? (
+                <View style={{ padding: 20, alignItems: 'center' }}>
+                  <Ionicons name="wallet-outline" size={48} color={colors.textMuted} />
+                  <Text style={{ color: colors.textMuted, marginTop: 10 }}>No accounts available</Text>
+                  <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 5 }}>Please create an account first</Text>
+                </View>
+              ) : (
+                ctx.accounts.map(account => (
+                  <TouchableOpacity 
+                    key={account._id}
+                    style={[styles.accountPickerItem, { backgroundColor: colors.bgCard, borderBottomColor: colors.border }, ctx.selectedAccount?._id === account._id && styles.accountPickerItemActive]}
+                    onPress={() => { ctx.setSelectedAccount(account); setShowAccountPicker(false); }}
+                  >
+                    <View style={styles.accountPickerItemLeft}>
+                      <View style={[styles.accountPickerIcon, { backgroundColor: colors.bgSecondary }, ctx.selectedAccount?._id === account._id && styles.accountPickerIconActive]}>
+                        <Ionicons name="wallet" size={20} color={ctx.selectedAccount?._id === account._id ? colors.accent : colors.textMuted} />
+                      </View>
+                      <View>
+                        <Text style={[styles.accountPickerNumber, { color: colors.textPrimary }]}>{account.accountNumber}</Text>
+                        <Text style={[styles.accountPickerType, { color: colors.textMuted }]}>{account.accountTypeId?.name || account.accountType || 'Standard'} • {account.leverage}</Text>
+                      </View>
                     </View>
-                    <View>
-                      <Text style={styles.accountPickerNumber}>{account.accountNumber}</Text>
-                      <Text style={styles.accountPickerType}>{account.accountType || 'Standard'} • {account.leverage}</Text>
+                    <View style={styles.accountPickerItemRight}>
+                      <Text style={[styles.accountPickerBalance, { color: colors.textPrimary }]}>${(account.balance || 0).toFixed(2)}</Text>
+                      {ctx.selectedAccount?._id === account._id && (
+                        <Ionicons name="checkmark-circle" size={20} color={colors.accent} />
+                      )}
                     </View>
-                  </View>
-                  <View style={styles.accountPickerItemRight}>
-                    <Text style={styles.accountPickerBalance}>${(account.balance || 0).toFixed(2)}</Text>
-                    {ctx.selectedAccount?._id === account._id && (
-                      <Ionicons name="checkmark-circle" size={20} color="#d4af37" />
-                    )}
-                  </View>
-                </TouchableOpacity>
-              ))}
+                  </TouchableOpacity>
+                ))
+              )}
             </ScrollView>
           </View>
         </View>
@@ -1461,6 +2052,7 @@ const QuotesTab = ({ navigation }) => {
 // TRADE TAB - Account summary + Positions/Pending/History (like mobile web view)
 const TradeTab = () => {
   const ctx = React.useContext(TradingContext);
+  const { colors } = useTheme();
   const toast = useToast();
   const [tradeTab, setTradeTab] = useState('positions');
   const [showSlTpModal, setShowSlTpModal] = useState(false);
@@ -1687,35 +2279,35 @@ const TradeTab = () => {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.bgPrimary }]}>
       {/* Account Summary - Like mobile web view */}
-      <View style={styles.accountSummaryList}>
+      <View style={[styles.accountSummaryList, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
         <View style={styles.summaryRow}>
-          <Text style={styles.summaryLabel}>Balance</Text>
-          <Text style={styles.summaryValue}>{(ctx.accountSummary.balance || 0).toFixed(2)}</Text>
+          <Text style={[styles.summaryLabel, { color: colors.textMuted }]}>Balance</Text>
+          <Text style={[styles.summaryValue, { color: colors.textPrimary }]}>{(ctx.accountSummary.balance || 0).toFixed(2)}</Text>
         </View>
         <View style={styles.summaryRow}>
-          <Text style={styles.summaryLabel}>Equity</Text>
+          <Text style={[styles.summaryLabel, { color: colors.textMuted }]}>Equity</Text>
           <Text style={[styles.summaryValue, { color: ctx.totalFloatingPnl >= 0 ? '#22c55e' : '#ef4444' }]}>
             {ctx.realTimeEquity.toFixed(2)}
           </Text>
         </View>
         <View style={styles.summaryRow}>
-          <Text style={styles.summaryLabel}>Credit</Text>
-          <Text style={styles.summaryValue}>{(ctx.accountSummary.credit || 0).toFixed(2)}</Text>
+          <Text style={[styles.summaryLabel, { color: colors.textMuted }]}>Credit</Text>
+          <Text style={[styles.summaryValue, { color: colors.textPrimary }]}>{(ctx.accountSummary.credit || 0).toFixed(2)}</Text>
         </View>
         <View style={styles.summaryRow}>
-          <Text style={styles.summaryLabel}>Used Margin</Text>
-          <Text style={styles.summaryValue}>{totalUsedMargin.toFixed(2)}</Text>
+          <Text style={[styles.summaryLabel, { color: colors.textMuted }]}>Used Margin</Text>
+          <Text style={[styles.summaryValue, { color: colors.textPrimary }]}>{totalUsedMargin.toFixed(2)}</Text>
         </View>
         <View style={styles.summaryRow}>
-          <Text style={styles.summaryLabel}>Free Margin</Text>
-          <Text style={[styles.summaryValue, { color: ctx.realTimeFreeMargin >= 0 ? '#d4af37' : '#d4af37' }]}>
+          <Text style={[styles.summaryLabel, { color: colors.textMuted }]}>Free Margin</Text>
+          <Text style={[styles.summaryValue, { color: colors.accent }]}>
             {ctx.realTimeFreeMargin.toFixed(2)}
           </Text>
         </View>
         <View style={styles.summaryRow}>
-          <Text style={styles.summaryLabel}>Floating PL</Text>
+          <Text style={[styles.summaryLabel, { color: colors.textMuted }]}>Floating PL</Text>
           <Text style={[styles.summaryValue, { color: ctx.totalFloatingPnl >= 0 ? '#22c55e' : '#ef4444' }]}>
             {ctx.totalFloatingPnl.toFixed(2)}
           </Text>
@@ -1723,14 +2315,14 @@ const TradeTab = () => {
       </View>
 
       {/* Trade Tabs - Positions / Pending / History */}
-      <View style={styles.tradeTabs}>
+      <View style={[styles.tradeTabs, { backgroundColor: colors.bgSecondary }]}>
         {['positions', 'pending', 'history'].map(tab => (
           <TouchableOpacity
             key={tab}
             style={[styles.tradeTabBtn, tradeTab === tab && styles.tradeTabBtnActive]}
             onPress={() => setTradeTab(tab)}
           >
-            <Text style={[styles.tradeTabText, tradeTab === tab && styles.tradeTabTextActive]}>
+            <Text style={[styles.tradeTabText, { color: colors.textMuted }, tradeTab === tab && styles.tradeTabTextActive]}>
               {tab === 'positions' ? `Positions (${ctx.openTrades.length})` :
                tab === 'pending' ? `Pending (${ctx.pendingOrders.length})` : 'History'}
             </Text>
@@ -1758,8 +2350,8 @@ const TradeTab = () => {
         {tradeTab === 'positions' && (
           ctx.openTrades.length === 0 ? (
             <View style={styles.emptyState}>
-              <Ionicons name="trending-up-outline" size={48} color="#000000" />
-              <Text style={styles.emptyText}>No open positions</Text>
+              <Ionicons name="trending-up-outline" size={48} color={colors.textMuted} />
+              <Text style={[styles.emptyText, { color: colors.textMuted }]}>No open positions</Text>
             </View>
           ) : (
             ctx.openTrades.map(trade => {
@@ -1786,32 +2378,32 @@ const TradeTab = () => {
                   rightThreshold={40}
                   overshootRight={false}
                 >
-                  <TouchableOpacity style={styles.positionItem} onPress={() => { setDetailTrade(trade); setShowTradeDetails(true); }}>
+                  <TouchableOpacity style={[styles.positionItem, { backgroundColor: colors.bgCard, borderBottomColor: colors.border }]} onPress={() => { setDetailTrade(trade); setShowTradeDetails(true); }}>
                     <View style={styles.positionRow}>
                       <View style={styles.positionInfo}>
                         <View style={styles.positionSymbolRow}>
-                          <Text style={styles.positionSymbol}>{trade.symbol}</Text>
-                          <View style={[styles.sideBadge, { backgroundColor: trade.side === 'BUY' ? '#d4af3720' : '#d4af3720' }]}>
-                            <Text style={[styles.sideText, { color: trade.side === 'BUY' ? '#d4af37' : '#d4af37' }]}>{trade.side}</Text>
+                          <Text style={[styles.positionSymbol, { color: colors.textPrimary }]}>{trade.symbol}</Text>
+                          <View style={[styles.sideBadge, { backgroundColor: trade.side === 'BUY' ? '#2563eb20' : '#ef444420' }]}>
+                            <Text style={[styles.sideText, { color: trade.side === 'BUY' ? '#2563eb' : '#ef4444' }]}>{trade.side}</Text>
                           </View>
                         </View>
-                        <Text style={styles.positionDetail}>{trade.quantity} lots @ {trade.openPrice?.toFixed(5)}</Text>
+                        <Text style={[styles.positionDetail, { color: colors.textMuted }]}>{trade.quantity} lots @ {trade.openPrice?.toFixed(5)}</Text>
                         {(trade.stopLoss || trade.takeProfit) && (
-                          <Text style={styles.slTpText}>
+                          <Text style={[styles.slTpText, { color: colors.textMuted }]}>
                             {trade.stopLoss ? `SL: ${trade.stopLoss}` : ''} {trade.takeProfit ? `TP: ${trade.takeProfit}` : ''}
                           </Text>
                         )}
                       </View>
                       <View style={styles.positionActions}>
                         <TouchableOpacity style={styles.editBtn} onPress={(e) => { e.stopPropagation(); openSlTpModal(trade); }}>
-                          <Ionicons name="pencil" size={16} color="#d4af37" />
+                          <Ionicons name="pencil" size={16} color={colors.accent} />
                         </TouchableOpacity>
                       </View>
                       <View style={styles.positionPnlCol}>
                         <Text style={[styles.positionPnl, { color: pnl >= 0 ? '#22c55e' : '#ef4444' }]}>
                           ${pnl >= 0 ? '' : '-'}{Math.abs(pnl).toFixed(2)}
                         </Text>
-                        <Text style={styles.currentPriceText}>{currentPrice?.toFixed(5) || '-'}</Text>
+                        <Text style={[styles.currentPriceText, { color: colors.textMuted }]}>{currentPrice?.toFixed(5) || '-'}</Text>
                       </View>
                     </View>
                   </TouchableOpacity>
@@ -1824,23 +2416,23 @@ const TradeTab = () => {
         {tradeTab === 'pending' && (
           ctx.pendingOrders.length === 0 ? (
             <View style={styles.emptyState}>
-              <Ionicons name="time-outline" size={48} color="#000000" />
-              <Text style={styles.emptyText}>No pending orders</Text>
+              <Ionicons name="time-outline" size={48} color={colors.textMuted} />
+              <Text style={[styles.emptyText, { color: colors.textMuted }]}>No pending orders</Text>
             </View>
           ) : (
             ctx.pendingOrders.map(order => (
-              <View key={order._id} style={styles.positionItem}>
+              <View key={order._id} style={[styles.positionItem, { backgroundColor: colors.bgCard, borderBottomColor: colors.border }]}>
                 <View style={styles.positionRow}>
                   <View style={styles.positionInfo}>
                     <View style={styles.positionSymbolRow}>
-                      <Text style={styles.positionSymbol}>{order.symbol}</Text>
-                      <View style={[styles.sideBadge, { backgroundColor: '#d4af3720' }]}>
-                        <Text style={[styles.sideText, { color: '#d4af37' }]}>{order.orderType}</Text>
+                      <Text style={[styles.positionSymbol, { color: colors.textPrimary }]}>{order.symbol}</Text>
+                      <View style={[styles.sideBadge, { backgroundColor: '#eab30820' }]}>
+                        <Text style={[styles.sideText, { color: '#eab308' }]}>{order.orderType}</Text>
                       </View>
                     </View>
-                    <Text style={styles.positionDetail}>{order.quantity} lots @ {order.pendingPrice?.toFixed(5)}</Text>
+                    <Text style={[styles.positionDetail, { color: colors.textMuted }]}>{order.quantity} lots @ {order.pendingPrice?.toFixed(5)}</Text>
                     {(order.stopLoss || order.takeProfit) && (
-                      <Text style={styles.slTpText}>
+                      <Text style={[styles.slTpText, { color: colors.textMuted }]}>
                         {order.stopLoss ? `SL: ${order.stopLoss}` : ''} {order.takeProfit ? `TP: ${order.takeProfit}` : ''}
                       </Text>
                     )}
@@ -1850,8 +2442,8 @@ const TradeTab = () => {
                     onPress={() => cancelPendingOrder(order)}
                     disabled={cancellingOrderId === order._id}
                   >
-                    <Ionicons name="close-circle" size={20} color="#d4af37" />
-                    <Text style={styles.cancelOrderText}>Cancel</Text>
+                    <Ionicons name="close-circle" size={20} color={colors.accent} />
+                    <Text style={[styles.cancelOrderText, { color: colors.accent }]}>Cancel</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -1862,20 +2454,20 @@ const TradeTab = () => {
         {tradeTab === 'history' && (
           ctx.tradeHistory.length === 0 ? (
             <View style={styles.emptyState}>
-              <Ionicons name="document-text-outline" size={48} color="#000000" />
-              <Text style={styles.emptyText}>No trade history</Text>
+              <Ionicons name="document-text-outline" size={48} color={colors.textMuted} />
+              <Text style={[styles.emptyText, { color: colors.textMuted }]}>No trade history</Text>
             </View>
           ) : (
             ctx.tradeHistory.map(trade => (
               <TouchableOpacity 
                 key={trade._id} 
-                style={styles.historyItem}
+                style={[styles.historyItem, { backgroundColor: colors.bgCard, borderBottomColor: colors.border }]}
                 onPress={() => { setHistoryDetailTrade(trade); setShowHistoryDetails(true); }}
               >
                 <View style={styles.historyHeader}>
                   <View style={styles.historyLeft}>
-                    <Text style={styles.historySymbol}>{trade.symbol}</Text>
-                    <Text style={[styles.historySide, { color: trade.side === 'BUY' ? '#d4af37' : '#d4af37' }]}>{trade.side}</Text>
+                    <Text style={[styles.historySymbol, { color: colors.textPrimary }]}>{trade.symbol}</Text>
+                    <Text style={[styles.historySide, { color: trade.side === 'BUY' ? '#2563eb' : '#ef4444' }]}>{trade.side}</Text>
                     {trade.closedBy === 'ADMIN' && (
                       <View style={styles.adminBadge}>
                         <Text style={styles.adminBadgeText}>Admin Close</Text>
@@ -1887,8 +2479,8 @@ const TradeTab = () => {
                   </Text>
                 </View>
                 <View style={styles.historyDetails}>
-                  <Text style={styles.historyDetail}>{trade.quantity} lots</Text>
-                  <Text style={styles.historyDetail}>{new Date(trade.closedAt).toLocaleDateString()}</Text>
+                  <Text style={[styles.historyDetail, { color: colors.textMuted }]}>{trade.quantity} lots</Text>
+                  <Text style={[styles.historyDetail, { color: colors.textMuted }]}>{new Date(trade.closedAt).toLocaleDateString()}</Text>
                 </View>
               </TouchableOpacity>
             ))
@@ -1930,7 +2522,7 @@ const TradeTab = () => {
                 returnKeyType="next"
                 autoCorrect={false}
                 autoCapitalize="none"
-                selectionColor="#d4af37"
+                selectionColor="#2563eb"
                 editable={true}
               />
             </View>
@@ -1947,7 +2539,7 @@ const TradeTab = () => {
                 returnKeyType="done"
                 autoCorrect={false}
                 autoCapitalize="none"
-                selectionColor="#d4af37"
+                selectionColor="#2563eb"
                 editable={true}
                 onSubmitEditing={updateSlTp}
               />
@@ -2001,11 +2593,11 @@ const TradeTab = () => {
                   </View>
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>Status</Text>
-                    <Text style={[styles.detailValue, { color: '#d4af37' }]}>{detailTrade.status}</Text>
+                    <Text style={[styles.detailValue, { color: '#2563eb' }]}>{detailTrade.status}</Text>
                   </View>
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>Side</Text>
-                    <Text style={[styles.detailValue, { color: detailTrade.side === 'BUY' ? '#d4af37' : '#d4af37' }]}>{detailTrade.side}</Text>
+                    <Text style={[styles.detailValue, { color: detailTrade.side === 'BUY' ? '#2563eb' : '#2563eb' }]}>{detailTrade.side}</Text>
                   </View>
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>Order Type</Text>
@@ -2045,13 +2637,13 @@ const TradeTab = () => {
                   <Text style={styles.detailSectionTitle}>Stop Loss / Take Profit</Text>
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>Stop Loss</Text>
-                    <Text style={[styles.detailValue, { color: detailTrade.stopLoss ? '#d4af37' : '#666' }]}>
+                    <Text style={[styles.detailValue, { color: detailTrade.stopLoss ? '#2563eb' : '#666' }]}>
                       {detailTrade.stopLoss || 'Not Set'}
                     </Text>
                   </View>
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>Take Profit</Text>
-                    <Text style={[styles.detailValue, { color: detailTrade.takeProfit ? '#d4af37' : '#666' }]}>
+                    <Text style={[styles.detailValue, { color: detailTrade.takeProfit ? '#2563eb' : '#666' }]}>
                       {detailTrade.takeProfit || 'Not Set'}
                     </Text>
                   </View>
@@ -2104,7 +2696,7 @@ const TradeTab = () => {
                     style={styles.detailEditBtn} 
                     onPress={() => { setShowTradeDetails(false); openSlTpModal(detailTrade); }}
                   >
-                    <Ionicons name="pencil" size={18} color="#d4af37" />
+                    <Ionicons name="pencil" size={18} color="#2563eb" />
                     <Text style={styles.detailEditText}>Edit SL/TP</Text>
                   </TouchableOpacity>
                   <TouchableOpacity 
@@ -2125,8 +2717,8 @@ const TradeTab = () => {
       <Modal visible={showCloseAllModal} animationType="fade" transparent onRequestClose={() => setShowCloseAllModal(false)}>
         <View style={styles.confirmModalOverlay}>
           <View style={styles.confirmModalContent}>
-            <View style={[styles.confirmModalIcon, { backgroundColor: closeAllType === 'profit' ? '#d4af3720' : closeAllType === 'loss' ? '#d4af3720' : '#d4af3720' }]}>
-              <Ionicons name={closeAllType === 'profit' ? 'trending-up' : closeAllType === 'loss' ? 'trending-down' : 'close-circle'} size={32} color={closeAllType === 'profit' ? '#d4af37' : closeAllType === 'loss' ? '#d4af37' : '#d4af37'} />
+            <View style={[styles.confirmModalIcon, { backgroundColor: closeAllType === 'profit' ? '#2563eb20' : closeAllType === 'loss' ? '#2563eb20' : '#2563eb20' }]}>
+              <Ionicons name={closeAllType === 'profit' ? 'trending-up' : closeAllType === 'loss' ? 'trending-down' : 'close-circle'} size={32} color={closeAllType === 'profit' ? '#2563eb' : closeAllType === 'loss' ? '#2563eb' : '#2563eb'} />
             </View>
             <Text style={styles.confirmModalTitle}>
               {closeAllType === 'all' && 'Close All Trades?'}
@@ -2143,7 +2735,7 @@ const TradeTab = () => {
                 <Text style={styles.confirmCancelText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity 
-                style={[styles.confirmCloseBtn, { backgroundColor: closeAllType === 'profit' ? '#d4af37' : closeAllType === 'loss' ? '#d4af37' : '#d4af37' }, isClosingAll && styles.btnDisabled]} 
+                style={[styles.confirmCloseBtn, { backgroundColor: closeAllType === 'profit' ? '#2563eb' : closeAllType === 'loss' ? '#2563eb' : '#2563eb' }, isClosingAll && styles.btnDisabled]} 
                 onPress={confirmCloseAll}
                 disabled={isClosingAll}
               >
@@ -2182,7 +2774,7 @@ const TradeTab = () => {
                   </View>
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>Side</Text>
-                    <Text style={[styles.detailValue, { color: historyDetailTrade.side === 'BUY' ? '#d4af37' : '#d4af37' }]}>{historyDetailTrade.side}</Text>
+                    <Text style={[styles.detailValue, { color: historyDetailTrade.side === 'BUY' ? '#2563eb' : '#2563eb' }]}>{historyDetailTrade.side}</Text>
                   </View>
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>Order Type</Text>
@@ -2191,7 +2783,7 @@ const TradeTab = () => {
                   {historyDetailTrade.closedBy === 'ADMIN' && (
                     <View style={styles.detailRow}>
                       <Text style={styles.detailLabel}>Closed By</Text>
-                      <Text style={[styles.detailValue, { color: '#d4af37' }]}>Admin</Text>
+                      <Text style={[styles.detailValue, { color: '#2563eb' }]}>Admin</Text>
                     </View>
                   )}
                 </View>
@@ -2226,13 +2818,13 @@ const TradeTab = () => {
                   <Text style={styles.detailSectionTitle}>Stop Loss / Take Profit</Text>
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>Stop Loss</Text>
-                    <Text style={[styles.detailValue, { color: historyDetailTrade.stopLoss ? '#d4af37' : '#666' }]}>
+                    <Text style={[styles.detailValue, { color: historyDetailTrade.stopLoss ? '#2563eb' : '#666' }]}>
                       {historyDetailTrade.stopLoss || 'Not Set'}
                     </Text>
                   </View>
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>Take Profit</Text>
-                    <Text style={[styles.detailValue, { color: historyDetailTrade.takeProfit ? '#d4af37' : '#666' }]}>
+                    <Text style={[styles.detailValue, { color: historyDetailTrade.takeProfit ? '#2563eb' : '#666' }]}>
                       {historyDetailTrade.takeProfit || 'Not Set'}
                     </Text>
                   </View>
@@ -2321,10 +2913,10 @@ const HistoryTab = () => {
       style={styles.container}
       data={ctx.tradeHistory}
       keyExtractor={item => item._id}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#d4af37" />}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#2563eb" />}
       ListEmptyComponent={
         <View style={styles.emptyState}>
-          <Ionicons name="document-text-outline" size={48} color="#000000" />
+          <Ionicons name="document-text-outline" size={48} color="#666" />
           <Text style={styles.emptyText}>No trade history</Text>
         </View>
       }
@@ -2333,8 +2925,8 @@ const HistoryTab = () => {
           <View style={styles.historyHeader}>
             <View style={styles.historyLeft}>
               <Text style={styles.historySymbol}>{item.symbol}</Text>
-              <View style={[styles.sideBadge, { backgroundColor: item.side === 'BUY' ? '#d4af3720' : '#d4af3720' }]}>
-                <Text style={[styles.sideText, { color: item.side === 'BUY' ? '#d4af37' : '#d4af37' }]}>{item.side}</Text>
+              <View style={[styles.sideBadge, { backgroundColor: item.side === 'BUY' ? '#2563eb20' : '#2563eb20' }]}>
+                <Text style={[styles.sideText, { color: item.side === 'BUY' ? '#2563eb' : '#2563eb' }]}>{item.side}</Text>
               </View>
               {item.closedBy === 'ADMIN' && (
                 <View style={styles.adminBadge}>
@@ -2361,6 +2953,7 @@ const HistoryTab = () => {
 // CHART TAB - Full screen TradingView chart with multiple chart tabs
 const ChartTab = () => {
   const ctx = React.useContext(TradingContext);
+  const { colors, isDark } = useTheme();
   const toast = useToast();
   const [chartTabs, setChartTabs] = useState([{ symbol: 'XAUUSD', id: 1 }]);
   const [activeTabId, setActiveTabId] = useState(1);
@@ -2370,9 +2963,14 @@ const ChartTab = () => {
   const [volume, setVolume] = useState(0.01);
   const [volumeText, setVolumeText] = useState('0.01');
   const [isExecuting, setIsExecuting] = useState(false);
-  const [showLeveragePicker, setShowLeveragePicker] = useState(false);
-  const [selectedLeverage, setSelectedLeverage] = useState(ctx.selectedAccount?.leverage || '1:100');
-  const leverageOptions = ['1:50', '1:100', '1:200', '1:500', '1:1000'];
+  
+  // Get leverage from account
+  const getAccountLeverage = () => {
+    if (ctx.isChallengeMode && ctx.selectedChallengeAccount) {
+      return ctx.selectedChallengeAccount.leverage || '1:100';
+    }
+    return ctx.selectedAccount?.leverage || ctx.selectedAccount?.accountTypeId?.leverage || '1:100';
+  };
 
   const activeTab = chartTabs.find(t => t.id === activeTabId) || chartTabs[0];
   const activeSymbol = activeTab?.symbol || 'XAUUSD';
@@ -2440,7 +3038,9 @@ const ChartTab = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userId: ctx.user?._id,
-          tradingAccountId: ctx.selectedAccount._id,
+          tradingAccountId: ctx.isChallengeMode && ctx.selectedChallengeAccount 
+            ? ctx.selectedChallengeAccount._id 
+            : ctx.selectedAccount._id,
           symbol: activeSymbol,
           segment: segment,
           side: side,
@@ -2453,11 +3053,19 @@ const ChartTab = () => {
       });
       const data = await res.json();
       if (data.success) {
-        toast?.showToast(`${side} ${volume} ${activeSymbol} @ ${price.toFixed(decimals)}`, 'success');
+        const isChallengeMsg = data.isChallengeAccount ? ' (Challenge)' : '';
+        toast?.showToast(`${side} ${volume} ${activeSymbol} @ ${price.toFixed(decimals)}${isChallengeMsg}`, 'success');
         ctx.fetchOpenTrades();
         ctx.fetchAccountSummary();
       } else {
-        toast?.showToast(data.message || 'Failed to place order', 'error');
+        // Handle challenge-specific error codes
+        if (data.code === 'DRAWDOWN_BREACH' || data.code === 'DAILY_DRAWDOWN_BREACH') {
+          toast?.showToast(`⚠️ Challenge Failed: ${data.message}`, 'error');
+        } else if (data.accountFailed) {
+          toast?.showToast(`❌ Challenge Account Failed: ${data.failReason || data.message}`, 'error');
+        } else {
+          toast?.showToast(data.message || 'Failed to place order', 'error');
+        }
       }
     } catch (e) {
       toast?.showToast('Network error', 'error');
@@ -2471,12 +3079,17 @@ const ChartTab = () => {
       const price = orderSide === 'BUY' ? currentPrice?.ask : currentPrice?.bid;
       const segment = currentInstrument?.category || 'Forex';
       
+      // Use challenge account ID if in challenge mode
+      const tradingAccountId = ctx.isChallengeMode && ctx.selectedChallengeAccount 
+        ? ctx.selectedChallengeAccount._id 
+        : ctx.selectedAccount?._id;
+      
       const res = await fetch(`${API_URL}/trade/open`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userId: ctx.user?._id,
-          tradingAccountId: ctx.selectedAccount?._id,
+          tradingAccountId: tradingAccountId,
           symbol: activeSymbol,
           segment: segment,
           side: orderSide,
@@ -2489,22 +3102,33 @@ const ChartTab = () => {
       });
       const data = await res.json();
       if (data.success) {
-        Alert.alert('Success', `${orderSide} order placed!`);
+        const isChallengeMsg = data.isChallengeAccount ? ' (Challenge)' : '';
+        Alert.alert('Success', `${orderSide} order placed!${isChallengeMsg}`);
         setShowOrderPanel(false);
         ctx.fetchOpenTrades();
         ctx.fetchAccountSummary();
       } else {
-        Alert.alert('Error', data.message || 'Failed to place order');
+        // Handle challenge-specific error codes
+        if (data.code === 'DRAWDOWN_BREACH' || data.code === 'DAILY_DRAWDOWN_BREACH') {
+          Alert.alert('Challenge Failed', data.message);
+        } else if (data.accountFailed) {
+          Alert.alert('Challenge Account Failed', data.failReason || data.message);
+        } else {
+          Alert.alert('Error', data.message || 'Failed to place order');
+        }
       }
     } catch (e) {
       Alert.alert('Error', 'Network error');
     }
   };
 
+  const chartTheme = isDark ? 'dark' : 'light';
+  const chartBg = isDark ? '#0a0a0a' : '#ffffff';
+  
   const chartHtml = `
     <!DOCTYPE html>
     <html><head><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <style>*{margin:0;padding:0;box-sizing:border-box;}html,body{height:100%;width:100%;background:#000;overflow:hidden;}</style></head>
+    <style>*{margin:0;padding:0;box-sizing:border-box;}html,body{height:100%;width:100%;background:${chartBg};overflow:hidden;}</style></head>
     <body>
     <div class="tradingview-widget-container" style="height:100%;width:100%">
       <div id="tradingview_chart" style="height:100%;width:100%"></div>
@@ -2516,51 +3140,76 @@ const ChartTab = () => {
       "symbol": "${getSymbolForTradingView(activeSymbol)}",
       "interval": "5",
       "timezone": "Etc/UTC",
-      "theme": "dark",
+      "theme": "${chartTheme}",
       "style": "1",
       "locale": "en",
-      "toolbar_bg": "#000",
+      "toolbar_bg": "${chartBg}",
       "enable_publishing": false,
       "hide_top_toolbar": false,
       "hide_legend": false,
+      "hide_side_toolbar": false,
       "save_image": false,
       "container_id": "tradingview_chart",
-      "backgroundColor": "#000000",
+      "backgroundColor": "${chartBg}",
       "withdateranges": true,
       "allow_symbol_change": false,
       "details": true,
       "hotlist": false,
       "calendar": false,
-      "studies": ["Volume@tv-basicstudies"]
+      "show_popup_button": true,
+      "popup_width": "1000",
+      "popup_height": "650",
+      "studies": [
+        "Volume@tv-basicstudies",
+        "MASimple@tv-basicstudies",
+        "RSI@tv-basicstudies",
+        "BB@tv-basicstudies"
+      ],
+      "studies_overrides": {
+        "moving average.length": 20,
+        "moving average.linewidth": 2,
+        "relative strength index.length": 14,
+        "bollinger bands.length": 20
+      },
+      "overrides": {
+        "mainSeriesProperties.showPriceLine": true,
+        "mainSeriesProperties.highLowAvgPrice.highLowPriceLinesVisible": true,
+        "scalesProperties.showSeriesLastValue": true,
+        "scalesProperties.showStudyLastValue": true,
+        "paneProperties.legendProperties.showLegend": true,
+        "paneProperties.legendProperties.showSeriesTitle": true,
+        "paneProperties.legendProperties.showSeriesOHLC": true,
+        "paneProperties.legendProperties.showBarChange": true
+      }
     });
     </script></body></html>
   `;
 
   return (
-    <View style={styles.chartContainer}>
+    <View style={[styles.chartContainer, { backgroundColor: colors.bgPrimary }]}>
       {/* Top Bar - Multiple Chart Tabs */}
-      <View style={styles.chartTabsBar}>
+      <View style={[styles.chartTabsBar, { backgroundColor: colors.bgSecondary, borderBottomColor: colors.border }]}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chartTabsScroll}>
           {chartTabs.map(tab => (
             <TouchableOpacity 
               key={tab.id}
-              style={[styles.chartTab, activeTabId === tab.id && styles.chartTabActive]}
+              style={[styles.chartTab, { backgroundColor: colors.bgCard }, activeTabId === tab.id && styles.chartTabActive]}
               onPress={() => setActiveTabId(tab.id)}
               onLongPress={() => removeChartTab(tab.id)}
             >
-              <Text style={[styles.chartTabText, activeTabId === tab.id && styles.chartTabTextActive]}>
+              <Text style={[styles.chartTabText, { color: colors.textMuted }, activeTabId === tab.id && styles.chartTabTextActive]}>
                 {tab.symbol}
               </Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
         <TouchableOpacity style={styles.addChartBtn} onPress={() => setShowSymbolPicker(true)}>
-          <Ionicons name="add" size={20} color="#666" />
+          <Ionicons name="add" size={20} color={colors.textMuted} />
         </TouchableOpacity>
       </View>
 
       {/* Quick Trade Bar - Screenshot Style: SELL price | - lot + | BUY price */}
-      <View style={styles.quickTradeBarTop}>
+      <View style={[styles.quickTradeBarTop, { backgroundColor: colors.bgCard, borderBottomColor: colors.border }]}>
         {/* SELL Button with Price */}
         <TouchableOpacity 
           style={[styles.sellPriceBtn, isExecuting && styles.btnDisabled]}
@@ -2572,12 +3221,12 @@ const ChartTab = () => {
         </TouchableOpacity>
 
         {/* Lot Size with +/- */}
-        <View style={styles.lotControlCenter}>
+        <View style={[styles.lotControlCenter, { backgroundColor: colors.bgSecondary }]}>
           <TouchableOpacity style={styles.lotMinusBtn} onPress={() => { const v = Math.max(0.01, volume - 0.01); setVolume(v); setVolumeText(v.toFixed(2)); }}>
-            <Text style={styles.lotControlText}>−</Text>
+            <Text style={[styles.lotControlText, { color: colors.textPrimary }]}>−</Text>
           </TouchableOpacity>
           <TextInput
-            style={styles.lotCenterInput}
+            style={[styles.lotCenterInput, { color: colors.textPrimary }]}
             value={volumeText}
             onChangeText={(text) => {
               if (text === '' || /^\d*\.?\d*$/.test(text)) {
@@ -2597,7 +3246,7 @@ const ChartTab = () => {
             selectTextOnFocus
           />
           <TouchableOpacity style={styles.lotPlusBtn} onPress={() => { const v = volume + 0.01; setVolume(v); setVolumeText(v.toFixed(2)); }}>
-            <Text style={styles.lotControlText}>+</Text>
+            <Text style={[styles.lotControlText, { color: colors.textPrimary }]}>+</Text>
           </TouchableOpacity>
         </View>
 
@@ -2615,32 +3264,13 @@ const ChartTab = () => {
       {/* Full Screen Chart */}
       <View style={styles.chartWrapper}>
         <WebView
-          key={activeSymbol}
+          key={`${activeSymbol}-${isDark}`}
           source={{ html: chartHtml }}
-          style={{ flex: 1, backgroundColor: '#000000' }}
+          style={{ flex: 1, backgroundColor: chartBg }}
           javaScriptEnabled={true}
           scrollEnabled={false}
         />
       </View>
-
-      {/* Leverage Picker Modal */}
-      <Modal visible={showLeveragePicker} animationType="fade" transparent onRequestClose={() => setShowLeveragePicker(false)}>
-        <TouchableOpacity style={styles.leverageModalOverlay} activeOpacity={1} onPress={() => setShowLeveragePicker(false)}>
-          <View style={styles.leverageModalContent}>
-            <Text style={styles.leverageModalTitle}>Select Leverage</Text>
-            {leverageOptions.map(lev => (
-              <TouchableOpacity 
-                key={lev}
-                style={[styles.leverageModalItem, selectedLeverage === lev && styles.leverageModalItemActive]}
-                onPress={() => { setSelectedLeverage(lev); setShowLeveragePicker(false); }}
-              >
-                <Text style={[styles.leverageModalItemText, selectedLeverage === lev && styles.leverageModalItemTextActive]}>{lev}</Text>
-                {selectedLeverage === lev && <Ionicons name="checkmark" size={18} color="#d4af37" />}
-              </TouchableOpacity>
-            ))}
-          </View>
-        </TouchableOpacity>
-      </Modal>
 
       {/* Order Panel Slide Up */}
       <Modal visible={showOrderPanel} animationType="slide" transparent>
@@ -2688,7 +3318,7 @@ const ChartTab = () => {
 
             {/* Execute Button */}
             <TouchableOpacity 
-              style={[styles.executeBtn, { backgroundColor: orderSide === 'BUY' ? '#d4af37' : '#d4af37' }]}
+              style={[styles.executeBtn, { backgroundColor: orderSide === 'BUY' ? '#2563eb' : '#2563eb' }]}
               onPress={executeTrade}
             >
               <Text style={styles.executeBtnText}>
@@ -2720,7 +3350,7 @@ const ChartTab = () => {
                     <Text style={styles.symbolPickerSymbol}>{inst.symbol}</Text>
                     <Text style={styles.symbolPickerName}>{inst.name}</Text>
                   </View>
-                  {chartTabs.some(t => t.symbol === inst.symbol) && <Ionicons name="checkmark" size={20} color="#d4af37" />}
+                  {chartTabs.some(t => t.symbol === inst.symbol) && <Ionicons name="checkmark" size={20} color="#2563eb" />}
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -2820,18 +3450,18 @@ const ThemedTabNavigator = () => {
         tabBarIcon: ({ focused, color, size }) => {
           let iconName;
           if (route.name === 'Home') iconName = focused ? 'home' : 'home-outline';
-          else if (route.name === 'Market') iconName = focused ? 'stats-chart' : 'stats-chart-outline';
-          else if (route.name === 'Trade') iconName = focused ? 'trending-up' : 'trending-up-outline';
+          else if (route.name === 'Markets') iconName = focused ? 'stats-chart' : 'stats-chart-outline';
           else if (route.name === 'Chart') iconName = focused ? 'analytics' : 'analytics-outline';
+          else if (route.name === 'Trade') iconName = focused ? 'trending-up' : 'trending-up-outline';
           else if (route.name === 'More') iconName = focused ? 'menu' : 'menu-outline';
           return <Ionicons name={iconName} size={size} color={color} />;
         },
       })}
     >
       <Tab.Screen name="Home" component={HomeTab} />
-      <Tab.Screen name="Market" component={QuotesTab} />
-      <Tab.Screen name="Trade" component={TradeTab} />
+      <Tab.Screen name="Markets" component={QuotesTab} />
       <Tab.Screen name="Chart" component={ChartTab} />
+      <Tab.Screen name="Trade" component={TradeTab} />
       <Tab.Screen name="More" component={MoreTab} />
     </Tab.Navigator>
   );
@@ -2849,12 +3479,12 @@ const MainTradingScreen = ({ navigation, route }) => {
 };
 
 // Gold color constant
-const GOLD = '#d4af37';
+const GOLD = '#2563eb';
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000000' },
-  centered: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#000000' },
-  tabBar: { backgroundColor: '#000000', borderTopColor: '#000000', height: 60, paddingBottom: 8 },
+  container: { flex: 1, backgroundColor: '#0a0a0a' },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0a0a0a' },
+  tabBar: { backgroundColor: '#0a0a0a', borderTopColor: '#0a0a0a', height: 60, paddingBottom: 8 },
   
   // Home
   homeHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, paddingTop: 50 },
@@ -2864,37 +3494,255 @@ const styles = StyleSheet.create({
   notificationBadge: { position: 'absolute', top: 4, right: 4, backgroundColor: '#ef4444', width: 18, height: 18, borderRadius: 9, justifyContent: 'center', alignItems: 'center' },
   notificationBadgeText: { color: '#fff', fontSize: 10, fontWeight: 'bold' },
   
-  accountCard: { margin: 16, padding: 16, backgroundColor: '#000000', borderRadius: 16, borderWidth: 1, borderColor: '#1a1a1a' },
+  accountCard: { margin: 16, padding: 16, backgroundColor: '#141414', borderRadius: 16, borderWidth: 1, borderColor: '#1e1e1e' },
   accountCardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
-  accountIconContainer: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#d4af3720', justifyContent: 'center', alignItems: 'center' },
+  accountIconContainer: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#2563eb20', justifyContent: 'center', alignItems: 'center' },
   accountInfo: { flex: 1, marginLeft: 12 },
   accountId: { color: '#fff', fontSize: 16, fontWeight: '600' },
   accountType: { color: '#666', fontSize: 12, marginTop: 2 },
+  challengeBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
+  challengeBadgeText: { fontSize: 10, fontWeight: '700' },
+  failedReasonContainer: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    backgroundColor: '#ef444420', 
+    padding: 12, 
+    borderRadius: 10, 
+    marginBottom: 12,
+    gap: 8
+  },
+  failedReasonText: { 
+    color: '#ef4444', 
+    fontSize: 13, 
+    flex: 1,
+    fontWeight: '500'
+  },
   balanceRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
   balanceLabel: { color: '#666', fontSize: 11, marginBottom: 2 },
   balanceValue: { color: '#fff', fontSize: 20, fontWeight: 'bold' },
   equityValue: { fontSize: 20, fontWeight: 'bold' },
-  pnlRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#000000' },
+  pnlRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#1e1e1e' },
   pnlValue: { fontSize: 16, fontWeight: '600' },
   freeMarginValue: { fontSize: 16, fontWeight: '600' },
   cardActionButtons: { flexDirection: 'row', gap: 8, marginTop: 4 },
-  statsRow: { flexDirection: 'row', justifyContent: 'space-between', paddingTop: 16, borderTopWidth: 1, borderTopColor: '#000000' },
+  statsRow: { flexDirection: 'row', justifyContent: 'space-between', paddingTop: 16, borderTopWidth: 1, borderTopColor: '#1e1e1e' },
   statItem: { flex: 1 },
   statLabel: { color: '#666', fontSize: 12, marginBottom: 4 },
   statValue: { color: '#fff', fontSize: 16, fontWeight: '600' },
   
   // Deposit/Withdraw Buttons
   actionButtons: { flexDirection: 'row', gap: 8, marginHorizontal: 16, marginTop: 12 },
-  depositBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 12, backgroundColor: '#d4af37', borderRadius: 12 },
-  depositBtnText: { color: '#000', fontSize: 14, fontWeight: '600' },
-  withdrawBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 12, backgroundColor: '#000000', borderRadius: 12, borderWidth: 1, borderColor: '#1a1a1a' },
+  depositBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 12, backgroundColor: '#dc2626', borderRadius: 12 },
+  depositBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' },
+  withdrawBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 12, backgroundColor: '#0f0f0f', borderRadius: 12, borderWidth: 1, borderColor: '#2a2a2a' },
   withdrawBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' },
   
-  // Quick Actions Row - 4 buttons only
+  // Quick Actions Grid - 8 stylish buttons
+  quickActionsGrid: { 
+    flexDirection: 'row', 
+    flexWrap: 'wrap', 
+    paddingHorizontal: 16, 
+    paddingVertical: 12,
+    justifyContent: 'space-between'
+  },
+  quickActionBtn: { 
+    width: '23%', 
+    alignItems: 'center', 
+    paddingVertical: 14,
+    marginBottom: 12
+  },
+  quickActionBtnLabel: { 
+    color: '#a0a0a0', 
+    fontSize: 11, 
+    fontWeight: '500', 
+    marginTop: 6 
+  },
+  // Legacy styles (kept for compatibility)
   quickActionsRow: { flexDirection: 'row', paddingHorizontal: 12, paddingVertical: 8, gap: 8 },
   quickActionCard: { flex: 1, alignItems: 'center', paddingVertical: 16, backgroundColor: '#000000', borderRadius: 12, borderWidth: 1, borderColor: '#1a1a1a' },
   quickActionIconBg: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center', marginBottom: 8 },
   quickActionLabel: { color: '#fff', fontSize: 11, fontWeight: '500' },
+  
+  // Section Header
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  sectionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  sectionTitle: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  seeAllText: { color: '#dc2626', fontSize: 13, fontWeight: '500' },
+  
+  // Copy Trade Masters Section
+  mastersSection: { marginHorizontal: 16, marginTop: 16 },
+  mastersScroll: { marginLeft: -4 },
+  masterCard: { 
+    width: 100, 
+    backgroundColor: '#0f0f0f', 
+    borderRadius: 12, 
+    padding: 12, 
+    marginLeft: 8, 
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#1a1a1a'
+  },
+  masterCardHeader: { position: 'relative', marginBottom: 8 },
+  masterAvatar: { 
+    width: 48, 
+    height: 48, 
+    borderRadius: 24, 
+    backgroundColor: '#dc262630', 
+    justifyContent: 'center', 
+    alignItems: 'center' 
+  },
+  masterAvatarText: { color: '#dc2626', fontSize: 18, fontWeight: 'bold' },
+  followingBadgeSmall: { 
+    position: 'absolute', 
+    bottom: -2, 
+    right: -2, 
+    width: 18, 
+    height: 18, 
+    borderRadius: 9, 
+    backgroundColor: '#22c55e20', 
+    justifyContent: 'center', 
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#111'
+  },
+  masterName: { color: '#fff', fontSize: 12, fontWeight: '600', textAlign: 'center' },
+  masterProfit: { color: '#22c55e', fontSize: 14, fontWeight: 'bold', marginTop: 4 },
+  masterFollowers: { color: '#666', fontSize: 10, marginTop: 2 },
+  
+  // Market Data Section
+  marketDataSection: { marginHorizontal: 16, marginTop: 20 },
+  marketTabs: { flexDirection: 'row', backgroundColor: '#0f0f0f', borderRadius: 10, padding: 4, marginBottom: 12 },
+  marketTab: { 
+    flex: 1, 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    gap: 4, 
+    paddingVertical: 8, 
+    borderRadius: 8 
+  },
+  marketTabActive: { backgroundColor: '#dc2626' },
+  marketTabText: { color: '#888', fontSize: 12, fontWeight: '600' },
+  marketTabTextActive: { color: '#fff' },
+  marketList: {},
+  marketItem: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center', 
+    paddingVertical: 12, 
+    borderBottomWidth: 1, 
+    borderBottomColor: '#1a1a1a' 
+  },
+  marketItemLeft: {},
+  marketSymbol: { color: '#fff', fontSize: 14, fontWeight: '600' },
+  marketName: { color: '#666', fontSize: 11, marginTop: 2, maxWidth: 150 },
+  marketItemRight: { alignItems: 'flex-end' },
+  marketPrice: { color: '#fff', fontSize: 14, fontWeight: '600' },
+  changeBadge: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    gap: 2, 
+    paddingHorizontal: 6, 
+    paddingVertical: 2, 
+    borderRadius: 4, 
+    marginTop: 4 
+  },
+  changeText: { fontSize: 11, fontWeight: '600' },
+  
+  // Empty Watchlist Home
+  emptyWatchlistHome: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 30,
+  },
+  emptyWatchlistHomeText: {
+    color: '#888',
+    fontSize: 14,
+    fontWeight: '500',
+    marginTop: 10,
+  },
+  emptyWatchlistHomeHint: {
+    color: '#555',
+    fontSize: 12,
+    marginTop: 4,
+  },
+  
+  // Master Detail Modal
+  masterDetailModal: { 
+    backgroundColor: '#111', 
+    borderTopLeftRadius: 24, 
+    borderTopRightRadius: 24, 
+    padding: 20, 
+    paddingBottom: 40,
+    maxHeight: '80%'
+  },
+  modalHandle: { width: 40, height: 4, backgroundColor: '#333', borderRadius: 2, alignSelf: 'center', marginBottom: 16 },
+  masterModalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  masterModalTitle: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
+  masterProfileCard: { alignItems: 'center', marginBottom: 20 },
+  masterProfileAvatar: { 
+    width: 80, 
+    height: 80, 
+    borderRadius: 40, 
+    backgroundColor: '#dc262630', 
+    justifyContent: 'center', 
+    alignItems: 'center',
+    marginBottom: 12
+  },
+  masterProfileAvatarText: { color: '#dc2626', fontSize: 32, fontWeight: 'bold' },
+  masterProfileName: { color: '#fff', fontSize: 20, fontWeight: 'bold' },
+  masterProfileBio: { color: '#888', fontSize: 13, textAlign: 'center', marginTop: 8, paddingHorizontal: 20 },
+  followingBadgeLarge: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    gap: 6, 
+    backgroundColor: '#22c55e20', 
+    paddingHorizontal: 12, 
+    paddingVertical: 6, 
+    borderRadius: 20, 
+    marginTop: 12 
+  },
+  followingBadgeLargeText: { color: '#22c55e', fontSize: 12, fontWeight: '600' },
+  masterStatsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 },
+  masterStatBox: { 
+    flex: 1, 
+    minWidth: '45%', 
+    backgroundColor: '#0a0a0a', 
+    borderRadius: 12, 
+    padding: 14, 
+    alignItems: 'center' 
+  },
+  masterStatLabel: { color: '#666', fontSize: 11 },
+  masterStatValue: { color: '#fff', fontSize: 18, fontWeight: 'bold', marginTop: 4 },
+  followMasterBtn: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    gap: 8, 
+    backgroundColor: '#dc2626', 
+    paddingVertical: 14, 
+    borderRadius: 12 
+  },
+  followMasterBtnText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+  alreadyFollowingBox: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    gap: 8, 
+    backgroundColor: '#22c55e20', 
+    paddingVertical: 14, 
+    borderRadius: 12 
+  },
+  alreadyFollowingText: { color: '#22c55e', fontSize: 14, fontWeight: '600' },
+  viewFullProfileBtn: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    gap: 6, 
+    marginTop: 16, 
+    paddingVertical: 12 
+  },
+  viewFullProfileText: { color: '#dc2626', fontSize: 14, fontWeight: '600' },
   
   // MarketWatch News Section
   marketWatchSection: { marginHorizontal: 16, marginTop: 16 },
@@ -2916,8 +3764,8 @@ const styles = StyleSheet.create({
   newsCardContentVertical: { flex: 1, padding: 14, justifyContent: 'space-between' },
   newsCardContentFull: { padding: 14 },
   newsCardMeta: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  newsCategoryBadge: { backgroundColor: '#d4af3720', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 },
-  newsCategoryText: { color: '#d4af37', fontSize: 11, fontWeight: '600' },
+  newsCategoryBadge: { backgroundColor: '#2563eb20', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 },
+  newsCategoryText: { color: '#2563eb', fontSize: 11, fontWeight: '600' },
   newsTime: { color: '#666', fontSize: 11 },
   newsCardTitle: { color: '#fff', fontSize: 14, fontWeight: '600', lineHeight: 20, marginBottom: 6 },
   newsCardDesc: { color: '#888', fontSize: 12, lineHeight: 17, marginBottom: 10 },
@@ -2938,12 +3786,12 @@ const styles = StyleSheet.create({
   positionsCard: { margin: 16, padding: 16, backgroundColor: '#000000', borderRadius: 16, borderWidth: 1, borderColor: '#1a1a1a' },
   positionsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   positionsTitle: { color: '#fff', fontSize: 16, fontWeight: '600' },
-  positionsCount: { color: '#d4af37', fontSize: 14 },
+  positionsCount: { color: '#2563eb', fontSize: 14 },
   noPositionsText: { color: '#666', fontSize: 14, textAlign: 'center', paddingVertical: 16 },
   positionRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 12, backgroundColor: '#000000', borderRadius: 12, marginBottom: 8 },
   positionSide: { fontSize: 12, marginTop: 2 },
   positionPnlValue: { fontSize: 16, fontWeight: '600' },
-  viewAllText: { color: '#d4af37', fontSize: 14, textAlign: 'center', paddingTop: 8 },
+  viewAllText: { color: '#2563eb', fontSize: 14, textAlign: 'center', paddingTop: 8 },
   
   // News Section (Home Tab)
   newsSection: { margin: 16, marginTop: 8 },
@@ -2952,11 +3800,11 @@ const styles = StyleSheet.create({
   newsTab: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: 10 },
   newsTabActive: { backgroundColor: '#000000' },
   newsTabText: { color: '#666', fontSize: 12, fontWeight: '500' },
-  newsTabTextActive: { color: '#d4af37' },
+  newsTabTextActive: { color: '#2563eb' },
   newsContent: {},
   newsItem: { backgroundColor: '#000000', borderRadius: 12, padding: 16, marginBottom: 10, borderWidth: 1, borderColor: '#1a1a1a' },
-  newsCategory: { backgroundColor: '#d4af3720', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, alignSelf: 'flex-start', marginBottom: 8 },
-  newsCategoryText: { color: '#d4af37', fontSize: 11, fontWeight: '600' },
+  newsCategory: { backgroundColor: '#2563eb20', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, alignSelf: 'flex-start', marginBottom: 8 },
+  newsCategoryText: { color: '#2563eb', fontSize: 11, fontWeight: '600' },
   newsTitle: { color: '#fff', fontSize: 14, fontWeight: '500', lineHeight: 20, marginBottom: 8 },
   newsMeta: { flexDirection: 'row', justifyContent: 'space-between' },
   newsSource: { color: '#888', fontSize: 12 },
@@ -2966,8 +3814,8 @@ const styles = StyleSheet.create({
   calendarHeaderText: { color: '#666', fontSize: 11, fontWeight: '600', width: 50, textAlign: 'center' },
   calendarRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#000000' },
   calendarTime: { color: '#fff', fontSize: 12, fontWeight: '500', width: 50, textAlign: 'center' },
-  currencyBadge: { backgroundColor: '#d4af3720', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, width: 50, alignItems: 'center' },
-  currencyText: { color: '#d4af37', fontSize: 11, fontWeight: '600' },
+  currencyBadge: { backgroundColor: '#2563eb20', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, width: 50, alignItems: 'center' },
+  currencyText: { color: '#2563eb', fontSize: 11, fontWeight: '600' },
   eventName: { color: '#fff', fontSize: 13, fontWeight: '500' },
   eventForecast: { color: '#666', fontSize: 10, marginTop: 2 },
   impactDot: { width: 10, height: 10, borderRadius: 5 },
@@ -3035,7 +3883,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   marketTabBtnActive: {
-    backgroundColor: '#d4af37',
+    backgroundColor: '#2563eb',
   },
   marketTabText: {
     color: '#666',
@@ -3069,7 +3917,6 @@ const styles = StyleSheet.create({
   },
   segmentContainer: {
     marginBottom: 8,
-    backgroundColor: '#000000',
     borderRadius: 12,
     overflow: 'hidden',
     borderWidth: 1,
@@ -3103,7 +3950,6 @@ const styles = StyleSheet.create({
   },
   segmentInstruments: {
     borderTopWidth: 1,
-    borderTopColor: '#000000',
   },
   categoriesContainer: { paddingHorizontal: 10, marginBottom: 8, height: 40 },
   categoryBtn: { 
@@ -3118,7 +3964,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#1a1a1a',
   },
-  categoryBtnActive: { backgroundColor: '#d4af37' },
+  categoryBtnActive: { backgroundColor: '#2563eb' },
   categoryText: { color: '#666', fontSize: 12, fontWeight: '500' },
   categoryTextActive: { color: '#000', fontWeight: '600' },
   
@@ -3138,17 +3984,15 @@ const styles = StyleSheet.create({
   bidPrice: { color: '#3b82f6', fontSize: 13, fontWeight: '500' },
   askPrice: { color: '#ef4444', fontSize: 13, fontWeight: '500' },
   priceLabel: { color: '#666', fontSize: 9, marginTop: 1 },
-  spreadBadgeCol: { backgroundColor: '#000000', paddingHorizontal: 6, paddingVertical: 4, borderRadius: 4, marginHorizontal: 4, minWidth: 32, alignItems: 'center', borderWidth: 1, borderColor: '#1a1a1a' },
-  spreadBadgeText: { color: '#d4af37', fontSize: 11, fontWeight: '600' },
+  spreadBadgeCol: { paddingHorizontal: 6, paddingVertical: 4, borderRadius: 4, marginHorizontal: 4, minWidth: 32, alignItems: 'center', borderWidth: 1 },
+  spreadBadgeText: { color: '#2563eb', fontSize: 11, fontWeight: '600' },
   chartIconBtn: { 
     width: 32, 
     height: 32, 
     justifyContent: 'center', 
     alignItems: 'center', 
-    backgroundColor: '#000000', 
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#1a1a1a',
   },
   
   // Chart Trading Panel - One Click Buy/Sell
@@ -3160,8 +4004,8 @@ const styles = StyleSheet.create({
   chartVolLabel: { color: '#666', fontSize: 10 },
   chartVolValue: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
   chartTradeButtons: { flexDirection: 'row', gap: 10 },
-  chartSellButton: { flex: 1, backgroundColor: '#d4af37', borderRadius: 10, paddingVertical: 12, alignItems: 'center' },
-  chartBuyButton: { flex: 1, backgroundColor: '#d4af37', borderRadius: 10, paddingVertical: 12, alignItems: 'center' },
+  chartSellButton: { flex: 1, backgroundColor: '#2563eb', borderRadius: 10, paddingVertical: 12, alignItems: 'center' },
+  chartBuyButton: { flex: 1, backgroundColor: '#2563eb', borderRadius: 10, paddingVertical: 12, alignItems: 'center' },
   chartSellLabel: { color: 'rgba(255,255,255,0.8)', fontSize: 11, fontWeight: '600' },
   chartBuyLabel: { color: 'rgba(255,255,255,0.8)', fontSize: 11, fontWeight: '600' },
   chartSellPrice: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
@@ -3180,7 +4024,7 @@ const styles = StyleSheet.create({
   orderCloseBtn: { padding: 6 },
   leverageRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#000000', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, marginBottom: 10 },
   leverageLabel: { color: '#888', fontSize: 12 },
-  leverageValue: { color: '#d4af37', fontSize: 14, fontWeight: 'bold' },
+  leverageValue: { color: '#2563eb', fontSize: 14, fontWeight: 'bold' },
   quickTradeRow: { flexDirection: 'row', gap: 8, marginBottom: 6 },
   quickSellBtn: { flex: 1, backgroundColor: '#ef4444', borderRadius: 8, paddingVertical: 10, alignItems: 'center' },
   quickBuyBtn: { flex: 1, backgroundColor: '#3b82f6', borderRadius: 8, paddingVertical: 10, alignItems: 'center' },
@@ -3190,15 +4034,15 @@ const styles = StyleSheet.create({
   spreadInfoRow: { alignItems: 'center', marginBottom: 10 },
   spreadInfoText: { color: '#666', fontSize: 11 },
   orderTypeRow: { flexDirection: 'row', gap: 8, marginBottom: 10 },
-  orderTypeBtn: { flex: 1, paddingVertical: 10, borderRadius: 8, alignItems: 'center', backgroundColor: '#000000' },
-  orderTypeBtnActive: { backgroundColor: '#d4af37' },
-  orderTypeBtnText: { color: '#666', fontSize: 13, fontWeight: '600' },
-  orderTypeBtnTextActive: { color: '#000' },
+  orderTypeBtn: { flex: 1, paddingVertical: 10, borderRadius: 8, alignItems: 'center' },
+  orderTypeBtnActive: { backgroundColor: '#2563eb' },
+  orderTypeBtnText: { fontSize: 13, fontWeight: '600' },
+  orderTypeBtnTextActive: { color: '#fff' },
   pendingTypeRow: { flexDirection: 'row', gap: 8, marginBottom: 10 },
-  pendingTypeBtn: { flex: 1, paddingVertical: 8, borderRadius: 8, alignItems: 'center', backgroundColor: '#000000', borderWidth: 1, borderColor: '#1a1a1a' },
-  pendingTypeBtnActive: { backgroundColor: '#000000', borderColor: '#d4af37' },
+  pendingTypeBtn: { flex: 1, paddingVertical: 8, borderRadius: 8, alignItems: 'center', borderWidth: 1 },
+  pendingTypeBtnActive: { borderColor: '#2563eb' },
   pendingTypeText: { color: '#666', fontSize: 12 },
-  pendingTypeTextActive: { color: '#d4af37' },
+  pendingTypeTextActive: { color: '#2563eb' },
   inputSection: { marginBottom: 10 },
   inputLabel: { color: '#888', fontSize: 11, marginBottom: 4 },
   priceInput: { backgroundColor: '#000000', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, color: '#fff', fontSize: 15 },
@@ -3213,7 +4057,7 @@ const styles = StyleSheet.create({
   finalBuyBtn: { flex: 1, backgroundColor: '#3b82f6', paddingVertical: 12, borderRadius: 8, alignItems: 'center' },
   finalBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' },
   spreadBadge: { backgroundColor: '#000000', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4, marginHorizontal: 8, borderWidth: 1, borderColor: '#1a1a1a' },
-  spreadText: { color: '#d4af37', fontSize: 10 },
+  spreadText: { color: '#2563eb', fontSize: 10 },
   
   // Trade
   priceBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, backgroundColor: '#000000' },
@@ -3228,14 +4072,14 @@ const styles = StyleSheet.create({
   summaryRow: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#000000' },
   summaryLabel: { color: '#666', fontSize: 14 },
   summaryValue: { color: '#fff', fontSize: 14 },
-  pendingStatus: { color: '#d4af37', fontSize: 12, fontWeight: '600' },
+  pendingStatus: { color: '#2563eb', fontSize: 12, fontWeight: '600' },
   historySide: { fontSize: 12, marginLeft: 8 },
   
   tradeTabs: { flexDirection: 'row', backgroundColor: '#000000', borderBottomWidth: 1, borderBottomColor: '#000000' },
   tradeTabBtn: { flex: 1, paddingVertical: 12, alignItems: 'center' },
-  tradeTabBtnActive: { borderBottomWidth: 2, borderBottomColor: '#d4af37' },
+  tradeTabBtnActive: { borderBottomWidth: 2, borderBottomColor: '#2563eb' },
   tradeTabText: { color: '#666', fontSize: 14 },
-  tradeTabTextActive: { color: '#d4af37', fontWeight: '600' },
+  tradeTabTextActive: { color: '#2563eb', fontWeight: '600' },
   
   tradesList: { flex: 1 },
   positionItem: { paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#000000' },
@@ -3248,13 +4092,13 @@ const styles = StyleSheet.create({
   positionDetail: { color: '#666', fontSize: 12, marginTop: 4 },
   slTpText: { color: '#888', fontSize: 11, marginTop: 2 },
   positionActions: { flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 8 },
-  editBtn: { padding: 10, backgroundColor: '#d4af3720', borderRadius: 10 },
-  closeTradeBtn: { padding: 10, backgroundColor: '#d4af3720', borderRadius: 10 },
+  editBtn: { padding: 10, backgroundColor: '#2563eb20', borderRadius: 10 },
+  closeTradeBtn: { padding: 10, backgroundColor: '#2563eb20', borderRadius: 10 },
   positionPnlCol: { alignItems: 'flex-end' },
   positionPnl: { fontSize: 15, fontWeight: '600' },
   currentPriceText: { color: '#666', fontSize: 12, marginTop: 2 },
-  closeBtn: { backgroundColor: '#d4af3720', paddingHorizontal: 16, paddingVertical: 6, borderRadius: 6 },
-  closeBtnText: { color: '#d4af37', fontSize: 12, fontWeight: '600' },
+  closeBtn: { backgroundColor: '#2563eb20', paddingHorizontal: 16, paddingVertical: 6, borderRadius: 6 },
+  closeBtnText: { color: '#2563eb', fontSize: 12, fontWeight: '600' },
   
   // SL/TP Modal
   slTpModalOverlay: { flex: 1, justifyContent: 'flex-end' },
@@ -3271,53 +4115,53 @@ const styles = StyleSheet.create({
   slTpButtonRow: { flexDirection: 'row', gap: 12, marginTop: 8 },
   slTpClearBtn: { flex: 1, backgroundColor: '#000000', padding: 16, borderRadius: 12, alignItems: 'center' },
   slTpClearBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
-  slTpSaveBtn: { flex: 2, backgroundColor: '#d4af37', padding: 16, borderRadius: 12, alignItems: 'center' },
+  slTpSaveBtn: { flex: 2, backgroundColor: '#2563eb', padding: 16, borderRadius: 12, alignItems: 'center' },
   slTpSaveBtnText: { color: '#000', fontSize: 16, fontWeight: 'bold' },
   
   // Trade Details Modal
   tradeDetailsContent: { backgroundColor: '#000000', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: 40, maxHeight: '85%' },
   tradeDetailsScroll: { maxHeight: 500 },
   detailSection: { backgroundColor: '#000000', borderRadius: 12, padding: 16, marginBottom: 12 },
-  detailSectionTitle: { color: '#d4af37', fontSize: 14, fontWeight: 'bold', marginBottom: 12 },
+  detailSectionTitle: { color: '#2563eb', fontSize: 14, fontWeight: 'bold', marginBottom: 12 },
   detailRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#000000' },
   detailLabel: { color: '#888', fontSize: 14 },
   detailValue: { color: '#fff', fontSize: 14, fontWeight: '500' },
   detailActions: { flexDirection: 'row', gap: 12, marginTop: 8, marginBottom: 20 },
-  detailEditBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#d4af3720', padding: 14, borderRadius: 12, borderWidth: 1, borderColor: '#d4af37' },
-  detailEditText: { color: '#d4af37', fontSize: 15, fontWeight: '600' },
-  detailCloseBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#d4af37', padding: 14, borderRadius: 12 },
+  detailEditBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#2563eb20', padding: 14, borderRadius: 12, borderWidth: 1, borderColor: '#2563eb' },
+  detailEditText: { color: '#2563eb', fontSize: 15, fontWeight: '600' },
+  detailCloseBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#2563eb', padding: 14, borderRadius: 12 },
   detailCloseText: { color: '#fff', fontSize: 15, fontWeight: '600' },
   
   // iOS-style Confirmation Modal
   confirmModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', padding: 40 },
   confirmModalContent: { backgroundColor: '#000000', borderRadius: 20, padding: 24, width: '100%', alignItems: 'center' },
-  confirmModalIcon: { width: 60, height: 60, borderRadius: 30, backgroundColor: '#d4af3720', justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
+  confirmModalIcon: { width: 60, height: 60, borderRadius: 30, backgroundColor: '#2563eb20', justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
   confirmModalTitle: { color: '#fff', fontSize: 18, fontWeight: 'bold', marginBottom: 8 },
   confirmModalMessage: { color: '#888', fontSize: 15, textAlign: 'center', marginBottom: 24 },
   confirmModalButtons: { flexDirection: 'row', gap: 12, width: '100%' },
   confirmCancelBtn: { flex: 1, backgroundColor: '#000000', padding: 14, borderRadius: 12, alignItems: 'center' },
   confirmCancelText: { color: '#fff', fontSize: 16, fontWeight: '600' },
-  confirmCloseBtn: { flex: 1, backgroundColor: '#d4af37', padding: 14, borderRadius: 12, alignItems: 'center' },
+  confirmCloseBtn: { flex: 1, backgroundColor: '#2563eb', padding: 14, borderRadius: 12, alignItems: 'center' },
   confirmCloseText: { color: '#fff', fontSize: 16, fontWeight: '600' },
   
   // Close All Buttons
   closeAllRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: '#000000' },
-  closeAllBtn: { flex: 1, backgroundColor: '#d4af3720', paddingVertical: 8, borderRadius: 8, alignItems: 'center', borderWidth: 1, borderColor: '#d4af37' },
-  closeAllText: { color: '#d4af37', fontSize: 12, fontWeight: '600' },
-  closeProfitBtn: { flex: 1, backgroundColor: '#d4af3720', paddingVertical: 8, borderRadius: 8, alignItems: 'center', borderWidth: 1, borderColor: '#d4af37' },
-  closeProfitText: { color: '#d4af37', fontSize: 12, fontWeight: '600' },
-  closeLossBtn: { flex: 1, backgroundColor: '#d4af3720', paddingVertical: 8, borderRadius: 8, alignItems: 'center', borderWidth: 1, borderColor: '#d4af37' },
-  closeLossText: { color: '#d4af37', fontSize: 12, fontWeight: '600' },
+  closeAllBtn: { flex: 1, backgroundColor: '#2563eb20', paddingVertical: 8, borderRadius: 8, alignItems: 'center', borderWidth: 1, borderColor: '#2563eb' },
+  closeAllText: { color: '#2563eb', fontSize: 12, fontWeight: '600' },
+  closeProfitBtn: { flex: 1, backgroundColor: '#2563eb20', paddingVertical: 8, borderRadius: 8, alignItems: 'center', borderWidth: 1, borderColor: '#2563eb' },
+  closeProfitText: { color: '#2563eb', fontSize: 12, fontWeight: '600' },
+  closeLossBtn: { flex: 1, backgroundColor: '#2563eb20', paddingVertical: 8, borderRadius: 8, alignItems: 'center', borderWidth: 1, borderColor: '#2563eb' },
+  closeLossText: { color: '#2563eb', fontSize: 12, fontWeight: '600' },
   
   // Cancel Order Button
-  cancelOrderBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#d4af3720', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: '#d4af37' },
-  cancelOrderText: { color: '#d4af37', fontSize: 12, fontWeight: '600' },
+  cancelOrderBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#2563eb20', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: '#2563eb' },
+  cancelOrderText: { color: '#2563eb', fontSize: 12, fontWeight: '600' },
   
   // Swipe to Close
-  swipeCloseBtn: { backgroundColor: '#d4af37', justifyContent: 'center', alignItems: 'center', width: 80, height: '100%' },
+  swipeCloseBtn: { backgroundColor: '#2563eb', justifyContent: 'center', alignItems: 'center', width: 80, height: '100%' },
   swipeCloseText: { color: '#fff', fontSize: 12, fontWeight: '600', marginTop: 4 },
   
-  tradeButton: { margin: 16, padding: 16, backgroundColor: '#d4af37', borderRadius: 12, alignItems: 'center' },
+  tradeButton: { margin: 16, padding: 16, backgroundColor: '#2563eb', borderRadius: 12, alignItems: 'center' },
   tradeButtonText: { color: '#000', fontSize: 16, fontWeight: 'bold' },
   
   // Order Panel
@@ -3328,8 +4172,8 @@ const styles = StyleSheet.create({
   
   sideToggle: { flexDirection: 'row', gap: 12, marginBottom: 20 },
   sideBtn: { flex: 1, padding: 16, borderRadius: 12, backgroundColor: '#000000', alignItems: 'center' },
-  sideBtnSell: { backgroundColor: '#d4af37' },
-  sideBtnBuy: { backgroundColor: '#d4af37' },
+  sideBtnSell: { backgroundColor: '#2563eb' },
+  sideBtnBuy: { backgroundColor: '#2563eb' },
   sideBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' },
   sideBtnPrice: { color: '#fff', fontSize: 18, fontWeight: 'bold', marginTop: 4 },
   
@@ -3358,8 +4202,8 @@ const styles = StyleSheet.create({
   historyItem: { padding: 12, borderBottomWidth: 1, borderBottomColor: '#000000' },
   historyDetails: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
   historyDetail: { color: '#666', fontSize: 12 },
-  adminBadge: { backgroundColor: '#d4af3720', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4 },
-  adminBadgeText: { color: '#d4af37', fontSize: 10 },
+  adminBadge: { backgroundColor: '#2563eb20', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4 },
+  adminBadgeText: { color: '#2563eb', fontSize: 10 },
   
   // More Menu - Matching screenshot
   moreMenuHeader: { paddingTop: 60, paddingHorizontal: 20, paddingBottom: 20 },
@@ -3370,7 +4214,7 @@ const styles = StyleSheet.create({
   moreMenuItemText: { flex: 1, color: '#fff', fontSize: 16 },
   themeToggleItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#000000' },
   themeToggle: { width: 50, height: 28, backgroundColor: '#000000', borderRadius: 14, justifyContent: 'center', paddingHorizontal: 2 },
-  themeToggleActive: { backgroundColor: '#d4af37' },
+  themeToggleActive: { backgroundColor: '#2563eb' },
   themeToggleThumb: { width: 24, height: 24, backgroundColor: '#fff', borderRadius: 12 },
   themeToggleThumbActive: { marginLeft: 'auto' },
   
@@ -3379,11 +4223,14 @@ const styles = StyleSheet.create({
   chartTabsBar: { flexDirection: 'row', alignItems: 'center', paddingTop: 50, paddingLeft: 8, backgroundColor: '#000000', borderBottomWidth: 1, borderBottomColor: '#000000' },
   chartTabsScroll: { flexGrow: 0 },
   chartTab: { paddingHorizontal: 14, paddingVertical: 10, marginRight: 2, borderBottomWidth: 2, borderBottomColor: 'transparent' },
-  chartTabActive: { borderBottomColor: '#d4af37' },
+  chartTabActive: { borderBottomColor: '#2563eb' },
   chartTabText: { color: '#666', fontSize: 13, fontWeight: '500' },
-  chartTabTextActive: { color: '#d4af37' },
+  chartTabTextActive: { color: '#2563eb' },
   addChartBtn: { paddingHorizontal: 12, paddingVertical: 10 },
-  chartWrapper: { flex: 1, backgroundColor: '#000000' },
+  chartWrapper: { flex: 1, backgroundColor: '#000000', minHeight: 400 },
+  sentimentSection: { backgroundColor: '#000000', paddingHorizontal: 16, paddingVertical: 12 },
+  sentimentTitle: { color: '#fff', fontSize: 16, fontWeight: '600', marginBottom: 8 },
+  sentimentWidget: { height: 180, backgroundColor: '#0a0a0a', borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: '#1a1a1a' },
   chartPriceBar: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 8, backgroundColor: '#000000' },
   chartPriceItem: { alignItems: 'center' },
   chartPriceLabel: { color: '#666', fontSize: 11, marginBottom: 2 },
@@ -3406,7 +4253,7 @@ const styles = StyleSheet.create({
   symbolPickerHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: '#000000' },
   symbolPickerTitle: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
   symbolPickerItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: '#000000' },
-  symbolPickerItemActive: { backgroundColor: '#d4af3710' },
+  symbolPickerItemActive: { backgroundColor: '#2563eb10' },
   symbolPickerSymbol: { color: '#fff', fontSize: 16, fontWeight: '600' },
   symbolPickerName: { color: '#666', fontSize: 12, marginTop: 2 },
   
@@ -3474,21 +4321,21 @@ const styles = StyleSheet.create({
   leverageModalContent: { backgroundColor: '#000000', borderRadius: 16, padding: 16, width: 200 },
   leverageModalTitle: { color: '#fff', fontSize: 16, fontWeight: 'bold', textAlign: 'center', marginBottom: 12 },
   leverageModalItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 16, borderRadius: 8 },
-  leverageModalItemActive: { backgroundColor: '#d4af3720' },
+  leverageModalItemActive: { backgroundColor: '#2563eb20' },
   leverageModalItemText: { color: '#888', fontSize: 14, fontWeight: '600' },
-  leverageModalItemTextActive: { color: '#d4af37' },
+  leverageModalItemTextActive: { color: '#2563eb' },
   
   // Leverage Selector
   leverageSelector: { flexDirection: 'row', gap: 6 },
   leverageOption: { paddingHorizontal: 10, paddingVertical: 6, backgroundColor: '#000000', borderRadius: 6, borderWidth: 1, borderColor: '#1a1a1a' },
-  leverageOptionActive: { backgroundColor: '#d4af3720', borderColor: '#d4af37' },
+  leverageOptionActive: { backgroundColor: '#2563eb20', borderColor: '#2563eb' },
   leverageOptionText: { color: '#888', fontSize: 12, fontWeight: '600' },
-  leverageOptionTextActive: { color: '#d4af37' },
+  leverageOptionTextActive: { color: '#2563eb' },
   
   // Account Selector - Below search bar
   accountSelector: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#000000', marginHorizontal: 12, marginTop: 0, marginBottom: 8, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: '#1a1a1a' },
   accountSelectorLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  accountIcon: { width: 24, height: 24, borderRadius: 12, backgroundColor: '#d4af3720', justifyContent: 'center', alignItems: 'center' },
+  accountIcon: { width: 24, height: 24, borderRadius: 12, backgroundColor: '#2563eb20', justifyContent: 'center', alignItems: 'center' },
   accountSelectorLabel: { color: '#666', fontSize: 9 },
   accountSelectorValue: { color: '#fff', fontSize: 12, fontWeight: '600' },
   
@@ -3500,14 +4347,14 @@ const styles = StyleSheet.create({
   accountPickerTitle: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
   accountPickerList: { paddingHorizontal: 12, paddingBottom: 40 },
   accountPickerItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, marginVertical: 4, backgroundColor: '#000000', borderRadius: 12 },
-  accountPickerItemActive: { backgroundColor: '#d4af3715', borderWidth: 1, borderColor: '#d4af37' },
+  accountPickerItemActive: { backgroundColor: '#2563eb15', borderWidth: 1, borderColor: '#2563eb' },
   accountPickerItemLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   accountPickerIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#000000', justifyContent: 'center', alignItems: 'center' },
-  accountPickerIconActive: { backgroundColor: '#d4af3720' },
+  accountPickerIconActive: { backgroundColor: '#2563eb20' },
   accountPickerNumber: { color: '#fff', fontSize: 15, fontWeight: '600' },
   accountPickerType: { color: '#666', fontSize: 12, marginTop: 2 },
   accountPickerItemRight: { alignItems: 'flex-end', gap: 4 },
-  accountPickerBalance: { color: '#d4af37', fontSize: 16, fontWeight: 'bold' },
+  accountPickerBalance: { color: '#2563eb', fontSize: 16, fontWeight: 'bold' },
 });
 
 export default MainTradingScreen;

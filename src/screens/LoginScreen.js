@@ -103,7 +103,7 @@ const LoginScreen = ({ navigation }) => {
   if (checkingAuth) {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color="#d4af37" />
+        <ActivityIndicator size="large" color="#2563eb" />
       </View>
     );
   }
@@ -225,7 +225,7 @@ const styles = StyleSheet.create({
   logo: {
     width: 60,
     height: 60,
-    backgroundColor: '#d4af37',
+    backgroundColor: '#2563eb',
     borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
@@ -260,7 +260,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   activeTab: {
-    backgroundColor: '#d4af37',
+    backgroundColor: '#2563eb',
   },
   tabText: {
     color: '#666',
@@ -310,12 +310,12 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   forgotText: {
-    color: '#d4af37',
+    color: '#2563eb',
     fontSize: 14,
     fontWeight: '500',
   },
   button: {
-    backgroundColor: '#d4af37',
+    backgroundColor: '#2563eb',
     borderRadius: 12,
     padding: 16,
     alignItems: 'center',
@@ -368,7 +368,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   signupLink: {
-    color: '#d4af37',
+    color: '#2563eb',
     fontSize: 15,
     fontWeight: '600',
   },

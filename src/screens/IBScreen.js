@@ -16,8 +16,10 @@ import * as Clipboard from 'expo-clipboard';
 import { Ionicons } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
 import { API_URL } from '../config';
+import { useTheme } from '../context/ThemeContext';
 
 const IBScreen = ({ navigation }) => {
+  const { colors, isDark } = useTheme();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -37,6 +39,8 @@ const IBScreen = ({ navigation }) => {
 
   useEffect(() => {
     if (user) {
+      // Set loading false early to show UI, then fetch data in background
+      setLoading(false);
       fetchIBProfile();
     }
   }, [user]);
@@ -85,7 +89,6 @@ const IBScreen = ({ navigation }) => {
       console.error('Error fetching IB profile:', e);
       setIbProfile(null);
     }
-    setLoading(false);
     setRefreshing(false);
   };
 
@@ -212,8 +215,8 @@ const IBScreen = ({ navigation }) => {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#d4af37" />
+      <View style={[styles.loadingContainer, { backgroundColor: colors.bgPrimary }]}>
+        <ActivityIndicator size="large" color={colors.accent} />
       </View>
     );
   }
@@ -221,31 +224,31 @@ const IBScreen = ({ navigation }) => {
   const tabs = ['overview', 'referrals', 'commissions', 'downline', 'withdraw'];
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.bgPrimary }]}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: colors.bgPrimary }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={24} color="#fff" />
+          <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>IB Program</Text>
+        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>IB Program</Text>
         <View style={{ width: 40 }} />
       </View>
 
       <ScrollView
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#d4af37" />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
         showsVerticalScrollIndicator={false}
       >
         {/* Not an IB - Show Apply */}
         {!ibProfile && (
           <View style={styles.applyContainer}>
             <View style={styles.applyIconContainer}>
-              <Ionicons name="ribbon" size={48} color="#d4af37" />
+              <Ionicons name="ribbon" size={48} color={colors.accent} />
             </View>
-            <Text style={styles.applyTitle}>Become an Introducing Broker</Text>
-            <Text style={styles.applySubtitle}>Earn commissions by referring traders. Get up to 5 levels of referral commissions!</Text>
+            <Text style={[styles.applyTitle, { color: colors.textPrimary }]}>Become an Introducing Broker</Text>
+            <Text style={[styles.applySubtitle, { color: colors.textMuted }]}>Earn commissions by referring traders. Get up to 5 levels of referral commissions!</Text>
             
-            <View style={styles.benefitsCard}>
-              <Text style={styles.benefitsTitle}>Benefits:</Text>
+            <View style={[styles.benefitsCard, { backgroundColor: colors.bgCard, borderWidth: 1, borderColor: colors.border }]}>
+              <Text style={[styles.benefitsTitle, { color: colors.textPrimary }]}>Benefits:</Text>
               {[
                 'Earn commission on every trade your referrals make',
                 'Multi-level commissions (up to 5 levels)',
@@ -253,7 +256,7 @@ const IBScreen = ({ navigation }) => {
                 'Easy withdrawal to your wallet'
               ].map((benefit, idx) => (
                 <View key={idx} style={styles.benefitRow}>
-                  <Ionicons name="chevron-forward" size={16} color="#d4af37" />
+                  <Ionicons name="chevron-forward" size={16} color="#2563eb" />
                   <Text style={styles.benefitText}>{benefit}</Text>
                 </View>
               ))}
@@ -279,8 +282,8 @@ const IBScreen = ({ navigation }) => {
             <View style={[styles.statusIconContainer, { backgroundColor: '#eab30830' }]}>
               <Ionicons name="time" size={48} color="#eab308" />
             </View>
-            <Text style={styles.statusTitle}>Application Pending</Text>
-            <Text style={styles.statusSubtitle}>Your IB application is under review. You will be notified once approved.</Text>
+            <Text style={[styles.statusTitle, { color: colors.textPrimary }]}>Application Pending</Text>
+            <Text style={[styles.statusSubtitle, { color: colors.textMuted }]}>Your IB application is under review. You will be notified once approved.</Text>
           </View>
         )}
 
@@ -290,8 +293,8 @@ const IBScreen = ({ navigation }) => {
             <View style={[styles.statusIconContainer, { backgroundColor: '#ef444430' }]}>
               <Ionicons name="close-circle" size={48} color="#ef4444" />
             </View>
-            <Text style={styles.statusTitle}>Application Rejected</Text>
-            <Text style={styles.statusSubtitle}>Unfortunately, your IB application was not approved.</Text>
+            <Text style={[styles.statusTitle, { color: colors.textPrimary }]}>Application Rejected</Text>
+            <Text style={[styles.statusSubtitle, { color: colors.textMuted }]}>Unfortunately, your IB application was not approved.</Text>
             {ibProfile?.rejectionReason && (
               <Text style={styles.rejectionReason}>Reason: {ibProfile.rejectionReason}</Text>
             )}
@@ -303,18 +306,18 @@ const IBScreen = ({ navigation }) => {
           <>
             {/* Stats Cards */}
             <View style={styles.statsGrid}>
-              <View style={styles.statCard}>
+              <View style={[styles.statCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
                 <View style={[styles.statIcon, { backgroundColor: '#22c55e20' }]}>
                   <Ionicons name="cash" size={20} color="#22c55e" />
                 </View>
-                <Text style={styles.statLabel}>Available Balance</Text>
-                <Text style={styles.statValue}>${ibProfile?.ibWalletBalance?.toFixed(2) || '0.00'}</Text>
+                <Text style={[styles.statLabel, { color: colors.textMuted }]}>Available Balance</Text>
+                <Text style={[styles.statValue, { color: colors.textPrimary }]}>${ibProfile?.ibWalletBalance?.toFixed(2) || '0.00'}</Text>
               </View>
-              <View style={styles.statCard}>
+              <View style={[styles.statCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
                 <View style={[styles.statIcon, { backgroundColor: '#3b82f620' }]}>
                   <Ionicons name="trending-up" size={20} color="#3b82f6" />
                 </View>
-                <Text style={styles.statLabel}>Total Earned</Text>
+                <Text style={[styles.statLabel, { color: colors.textMuted }]}>Total Earned</Text>
                 <Text style={styles.statValue}>${ibProfile?.totalCommissionEarned?.toFixed(2) || '0.00'}</Text>
               </View>
               <View style={styles.statCard}>
@@ -375,7 +378,7 @@ const IBScreen = ({ navigation }) => {
             {levelProgress?.nextLevel && (
               <View style={styles.levelProgressCard}>
                 <View style={styles.levelProgressHeader}>
-                  <Ionicons name="ribbon" size={20} color="#d4af37" />
+                  <Ionicons name="ribbon" size={20} color="#2563eb" />
                   <Text style={styles.levelProgressTitle}>Commission Levels</Text>
                 </View>
                 <View style={styles.progressBarContainer}>
@@ -492,15 +495,15 @@ const IBScreen = ({ navigation }) => {
                   ) : (
                     downline.map((node, idx) => (
                       <View key={node._id || idx} style={styles.downlineItem}>
-                        <View style={[styles.downlineAvatar, { backgroundColor: node.isIB ? '#d4af3730' : '#33333' }]}>
-                          <Text style={[styles.avatarText, { color: node.isIB ? '#d4af37' : '#888' }]}>{node.firstName?.charAt(0) || '?'}</Text>
+                        <View style={[styles.downlineAvatar, { backgroundColor: node.isIB ? '#2563eb30' : '#33333' }]}>
+                          <Text style={[styles.avatarText, { color: node.isIB ? '#2563eb' : '#888' }]}>{node.firstName?.charAt(0) || '?'}</Text>
                         </View>
                         <View style={styles.downlineInfo}>
                           <Text style={styles.downlineName}>{node.firstName || 'Unknown'}</Text>
                           <Text style={styles.downlineEmail}>{node.email}</Text>
                         </View>
-                        <View style={[styles.downlineBadge, { backgroundColor: node.isIB ? '#d4af3720' : '#33333' }]}>
-                          <Text style={[styles.downlineBadgeText, { color: node.isIB ? '#d4af37' : '#888' }]}>
+                        <View style={[styles.downlineBadge, { backgroundColor: node.isIB ? '#2563eb20' : '#33333' }]}>
+                          <Text style={[styles.downlineBadgeText, { color: node.isIB ? '#2563eb' : '#888' }]}>
                             {node.isIB ? 'IB' : 'User'} • L{(node.level || 0) + 1}
                           </Text>
                         </View>
@@ -559,46 +562,46 @@ const IBScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000000' },
-  loadingContainer: { flex: 1, backgroundColor: '#000000', justifyContent: 'center', alignItems: 'center' },
+  container: { flex: 1 },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 60, paddingBottom: 16 },
   backBtn: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
-  headerTitle: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
+  headerTitle: { fontSize: 18, fontWeight: 'bold' },
   
   // Apply Container
   applyContainer: { padding: 20, alignItems: 'center' },
-  applyIconContainer: { width: 80, height: 80, borderRadius: 40, backgroundColor: '#d4af3720', justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
-  applyTitle: { color: '#fff', fontSize: 22, fontWeight: 'bold', textAlign: 'center', marginBottom: 8 },
+  applyIconContainer: { width: 80, height: 80, borderRadius: 40, backgroundColor: '#2563eb20', justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
+  applyTitle: { fontSize: 22, fontWeight: 'bold', textAlign: 'center', marginBottom: 8 },
   applySubtitle: { color: '#888', fontSize: 14, textAlign: 'center', marginBottom: 20 },
-  benefitsCard: { backgroundColor: '#111', borderRadius: 16, padding: 16, width: '100%', marginBottom: 20 },
-  benefitsTitle: { color: '#fff', fontSize: 14, fontWeight: '600', marginBottom: 12 },
+  benefitsCard: { borderRadius: 16, padding: 16, width: '100%', marginBottom: 20 },
+  benefitsTitle: { fontSize: 14, fontWeight: '600', marginBottom: 12 },
   benefitRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
   benefitText: { color: '#888', fontSize: 13, flex: 1 },
-  applyBtn: { backgroundColor: '#d4af37', paddingHorizontal: 40, paddingVertical: 16, borderRadius: 12 },
+  applyBtn: { backgroundColor: '#2563eb', paddingHorizontal: 40, paddingVertical: 16, borderRadius: 12 },
   applyBtnText: { color: '#000', fontSize: 16, fontWeight: 'bold' },
   btnDisabled: { opacity: 0.6 },
   
   // Status Container
   statusContainer: { padding: 20, alignItems: 'center' },
   statusIconContainer: { width: 80, height: 80, borderRadius: 40, justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
-  statusTitle: { color: '#fff', fontSize: 22, fontWeight: 'bold', textAlign: 'center', marginBottom: 8 },
+  statusTitle: { fontSize: 22, fontWeight: 'bold', textAlign: 'center', marginBottom: 8 },
   statusSubtitle: { color: '#888', fontSize: 14, textAlign: 'center' },
   rejectionReason: { color: '#ef4444', fontSize: 13, marginTop: 12, textAlign: 'center' },
   
   // Stats Grid
   statsGrid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 16, gap: 10, marginBottom: 12 },
-  statCard: { width: '48%', backgroundColor: '#111', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: '#222' },
+  statCard: { width: '48%', borderRadius: 14, padding: 14, borderWidth: 1 },
   statIcon: { width: 36, height: 36, borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginBottom: 8 },
   statLabel: { color: '#888', fontSize: 11 },
-  statValue: { color: '#fff', fontSize: 20, fontWeight: 'bold', marginTop: 4 },
+  statValue: { fontSize: 20, fontWeight: 'bold', marginTop: 4 },
   
   // Info Cards
   infoCardsRow: { paddingHorizontal: 16, marginBottom: 12 },
-  commissionRateCard: { backgroundColor: '#111', borderRadius: 14, padding: 16, borderWidth: 1, borderColor: '#222' },
+  commissionRateCard: { borderRadius: 14, padding: 16, borderWidth: 1 },
   cardLabel: { color: '#888', fontSize: 12, marginBottom: 8 },
   commissionRateRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  commissionRateValue: { color: '#fff', fontSize: 28, fontWeight: 'bold' },
+  commissionRateValue: { fontSize: 28, fontWeight: 'bold' },
   commissionRateUnit: { color: '#888', fontSize: 14, fontWeight: 'normal' },
   levelName: { color: '#888', fontSize: 12, marginTop: 4 },
   commissionIcon: { width: 48, height: 48, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
@@ -615,22 +618,22 @@ const styles = StyleSheet.create({
   shareBtn: { width: 40, height: 40, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
   
   // Level Progress
-  levelProgressCard: { marginHorizontal: 16, marginBottom: 12, padding: 16, backgroundColor: '#111', borderRadius: 14, borderWidth: 1, borderColor: '#222' },
+  levelProgressCard: { marginHorizontal: 16, marginBottom: 12, padding: 16, borderRadius: 14, borderWidth: 1 },
   levelProgressHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
-  levelProgressTitle: { color: '#fff', fontSize: 15, fontWeight: '600' },
+  levelProgressTitle: { fontSize: 15, fontWeight: '600' },
   progressBarContainer: {},
   progressBarLabels: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
   progressLabel: { color: '#888', fontSize: 12 },
-  progressPercent: { color: '#d4af37', fontSize: 12, fontWeight: '600' },
+  progressPercent: { color: '#2563eb', fontSize: 12, fontWeight: '600' },
   progressBarBg: { height: 6, backgroundColor: '#222', borderRadius: 3, overflow: 'hidden' },
-  progressBarFill: { height: '100%', backgroundColor: '#d4af37', borderRadius: 3 },
+  progressBarFill: { height: '100%', backgroundColor: '#2563eb', borderRadius: 3 },
   progressHint: { color: '#666', fontSize: 11, marginTop: 6 },
   
   // Tabs
   tabsScroll: { marginBottom: 12 },
   tabs: { flexDirection: 'row', paddingHorizontal: 16, gap: 8 },
-  tab: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, backgroundColor: '#111' },
-  tabActive: { backgroundColor: '#d4af37' },
+  tab: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8 },
+  tabActive: { backgroundColor: '#2563eb' },
   tabText: { color: '#888', fontSize: 12, fontWeight: '500' },
   tabTextActive: { color: '#000' },
   
@@ -639,30 +642,30 @@ const styles = StyleSheet.create({
   
   // Level Stats Grid
   levelStatsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  levelStatCard: { width: '31%', backgroundColor: '#111', borderRadius: 12, padding: 12, alignItems: 'center', borderWidth: 1, borderColor: '#222' },
+  levelStatCard: { width: '31%', borderRadius: 12, padding: 12, alignItems: 'center', borderWidth: 1 },
   levelStatLabel: { color: '#888', fontSize: 10 },
-  levelStatValue: { color: '#fff', fontSize: 18, fontWeight: 'bold', marginTop: 4 },
+  levelStatValue: { fontSize: 18, fontWeight: 'bold', marginTop: 4 },
   levelStatSubLabel: { color: '#666', fontSize: 10 },
   levelStatCommission: { color: '#22c55e', fontSize: 12, fontWeight: '600', marginTop: 4 },
   
   // Empty State
   emptyState: { alignItems: 'center', paddingVertical: 40 },
-  emptyTitle: { color: '#fff', fontSize: 16, fontWeight: '600', marginTop: 12 },
+  emptyTitle: { fontSize: 16, fontWeight: '600', marginTop: 12 },
   emptyText: { color: '#666', fontSize: 13, marginTop: 6, textAlign: 'center' },
   
   // Referral Item
-  referralItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#111', borderRadius: 12, padding: 14, marginBottom: 8, borderWidth: 1, borderColor: '#222' },
-  referralAvatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#d4af3730', justifyContent: 'center', alignItems: 'center' },
-  avatarText: { color: '#d4af37', fontSize: 16, fontWeight: 'bold' },
+  referralItem: { flexDirection: 'row', alignItems: 'center', borderRadius: 12, padding: 14, marginBottom: 8, borderWidth: 1 },
+  referralAvatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#2563eb30', justifyContent: 'center', alignItems: 'center' },
+  avatarText: { color: '#2563eb', fontSize: 16, fontWeight: 'bold' },
   referralInfo: { flex: 1, marginLeft: 12 },
-  referralName: { color: '#fff', fontSize: 14, fontWeight: '600' },
+  referralName: { fontSize: 14, fontWeight: '600' },
   referralEmail: { color: '#666', fontSize: 12, marginTop: 2 },
   referralDate: { color: '#666', fontSize: 11 },
   
   // Commission Item
-  commissionItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#111', borderRadius: 12, padding: 14, marginBottom: 8, borderWidth: 1, borderColor: '#222' },
+  commissionItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderRadius: 12, padding: 14, marginBottom: 8, borderWidth: 1 },
   commissionItemLeft: {},
-  commissionSymbol: { color: '#fff', fontSize: 14, fontWeight: '600' },
+  commissionSymbol: { fontSize: 14, fontWeight: '600' },
   commissionMeta: { color: '#666', fontSize: 11, marginTop: 2 },
   commissionItemRight: { alignItems: 'flex-end' },
   commissionAmount: { color: '#22c55e', fontSize: 15, fontWeight: '600' },
@@ -670,22 +673,22 @@ const styles = StyleSheet.create({
   commissionStatusText: { fontSize: 10, fontWeight: '600' },
   
   // Downline Item
-  downlineItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#111', borderRadius: 12, padding: 14, marginBottom: 8, borderWidth: 1, borderColor: '#222' },
+  downlineItem: { flexDirection: 'row', alignItems: 'center', borderRadius: 12, padding: 14, marginBottom: 8, borderWidth: 1 },
   downlineAvatar: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center' },
   downlineInfo: { flex: 1, marginLeft: 12 },
-  downlineName: { color: '#fff', fontSize: 14, fontWeight: '500' },
+  downlineName: { fontSize: 14, fontWeight: '500' },
   downlineEmail: { color: '#666', fontSize: 11, marginTop: 2 },
   downlineBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
   downlineBadgeText: { fontSize: 10, fontWeight: '600' },
   
   // Withdraw
   withdrawContainer: {},
-  withdrawBalanceCard: { backgroundColor: '#111', borderRadius: 14, padding: 20, alignItems: 'center', marginBottom: 20, borderWidth: 1, borderColor: '#222' },
+  withdrawBalanceCard: { borderRadius: 14, padding: 20, alignItems: 'center', marginBottom: 20, borderWidth: 1 },
   withdrawBalanceLabel: { color: '#888', fontSize: 12 },
   withdrawBalanceValue: { color: '#22c55e', fontSize: 32, fontWeight: 'bold', marginTop: 8 },
   inputLabel: { color: '#888', fontSize: 12, marginBottom: 8 },
-  input: { backgroundColor: '#111', borderRadius: 12, padding: 16, color: '#fff', fontSize: 16, borderWidth: 1, borderColor: '#222', marginBottom: 16 },
-  withdrawBtn: { backgroundColor: '#d4af37', padding: 16, borderRadius: 12, alignItems: 'center' },
+  input: { borderRadius: 12, padding: 16, fontSize: 16, borderWidth: 1, marginBottom: 16 },
+  withdrawBtn: { backgroundColor: '#2563eb', padding: 16, borderRadius: 12, alignItems: 'center' },
   withdrawBtnText: { color: '#000', fontSize: 16, fontWeight: 'bold' },
   pendingWithdrawal: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 16 },
   pendingWithdrawalText: { color: '#eab308', fontSize: 13 },

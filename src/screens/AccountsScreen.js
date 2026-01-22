@@ -14,16 +14,27 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
 import { API_URL } from '../config/api';
+import { useTheme } from '../context/ThemeContext';
 
 const AccountsScreen = ({ navigation, route }) => {
+  const { colors, isDark } = useTheme();
   const [user, setUser] = useState(null);
   const [accounts, setAccounts] = useState([]);
+  const [challengeAccounts, setChallengeAccounts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [showOpenAccountModal, setShowOpenAccountModal] = useState(false);
   const [accountTypes, setAccountTypes] = useState([]);
+  const [loadingAccountTypes, setLoadingAccountTypes] = useState(false);
   const [openingAccount, setOpeningAccount] = useState(false);
   const [selectedAccountType, setSelectedAccountType] = useState(null);
+  const [activeTab, setActiveTab] = useState('live'); // 'live', 'demo', 'challenge', 'archive'
+  
+  // Challenge states
+  const [availableChallenges, setAvailableChallenges] = useState([]);
+  const [showBuyChallengeModal, setShowBuyChallengeModal] = useState(false);
+  const [buyingChallenge, setBuyingChallenge] = useState(false);
+  const [challengeModeEnabled, setChallengeModeEnabled] = useState(false);
   
   // Transfer states
   const [walletBalance, setWalletBalance] = useState(0);
@@ -44,8 +55,10 @@ const AccountsScreen = ({ navigation, route }) => {
 
   useEffect(() => {
     if (user) {
-      // Fetch accounts and wallet balance in parallel for faster loading
-      Promise.all([fetchAccounts(), fetchWalletBalance()]);
+      // Set loading false early to show UI, then fetch data in background
+      setLoading(false);
+      // Fetch accounts, challenge accounts, and wallet balance in parallel for faster loading
+      Promise.all([fetchAccounts(), fetchChallengeAccounts(), fetchWalletBalance()]);
     }
   }, [user]);
   
@@ -67,6 +80,15 @@ const AccountsScreen = ({ navigation, route }) => {
       }
     }
   }, [route?.params, accounts]);
+
+  // Handle route params to switch to specific tab (e.g., challenge tab from failed challenge)
+  useEffect(() => {
+    if (route?.params?.activeTab) {
+      setActiveTab(route.params.activeTab);
+      // Clear the param to prevent re-triggering
+      navigation.setParams({ activeTab: null });
+    }
+  }, [route?.params?.activeTab]);
 
   const fetchWalletBalance = async () => {
     try {
@@ -91,18 +113,86 @@ const AccountsScreen = ({ navigation, route }) => {
     }
   };
 
+  const fetchChallengeAccounts = async () => {
+    if (!user) return;
+    try {
+      const res = await fetch(`${API_URL}/prop/my-accounts/${user._id}`);
+      const data = await res.json();
+      console.log('AccountsScreen - Fetched challenge accounts:', data.accounts?.length);
+      setChallengeAccounts(data.accounts || []);
+    } catch (e) {
+      console.error('Error fetching challenge accounts:', e);
+    }
+  };
+
+  const fetchAvailableChallenges = async () => {
+    try {
+      const res = await fetch(`${API_URL}/prop/challenges`);
+      const data = await res.json();
+      console.log('AccountsScreen - Fetched available challenges:', data.challenges?.length, 'enabled:', data.enabled);
+      setAvailableChallenges(data.challenges || []);
+      setChallengeModeEnabled(data.enabled || false);
+    } catch (e) {
+      console.error('Error fetching available challenges:', e);
+    }
+  };
+
+  const buyChallenge = async (challenge) => {
+    if (buyingChallenge) return;
+    
+    const challengeFee = challenge.challengeFee || 0;
+    if (walletBalance < challengeFee) {
+      Alert.alert('Insufficient Balance', `You need $${challengeFee} to purchase this challenge. Your wallet balance is $${walletBalance.toFixed(2)}.`);
+      return;
+    }
+
+    Alert.alert(
+      'Confirm Purchase',
+      `Purchase ${challenge.name} for $${challengeFee}?\n\nFund Size: $${(challenge.fundSize || 0).toLocaleString()}\nYour wallet balance: $${walletBalance.toFixed(2)}`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Buy Challenge', 
+          onPress: async () => {
+            setBuyingChallenge(true);
+            try {
+              const res = await fetch(`${API_URL}/prop/buy`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  userId: user._id,
+                  challengeId: challenge._id
+                })
+              });
+              const data = await res.json();
+              if (data.success) {
+                Alert.alert('Success', `Challenge purchased! Account ID: ${data.account?.accountId}`);
+                setShowBuyChallengeModal(false);
+                fetchChallengeAccounts();
+                fetchWalletBalance();
+              } else {
+                Alert.alert('Error', data.message || 'Failed to purchase challenge');
+              }
+            } catch (e) {
+              Alert.alert('Error', 'Network error: ' + e.message);
+            } finally {
+              setBuyingChallenge(false);
+            }
+          }
+        }
+      ]
+    );
+  };
+
   const fetchAccounts = async () => {
     if (!user) return;
     try {
       const res = await fetch(`${API_URL}/trading-accounts/user/${user._id}`);
       const data = await res.json();
-      console.log('AccountsScreen - Fetched accounts:', JSON.stringify(data.accounts?.map(a => ({ id: a.accountId, balance: a.balance, credit: a.credit }))));
       setAccounts(data.accounts || []);
-      
     } catch (e) {
       console.error('Error fetching accounts:', e);
     }
-    setLoading(false);
   };
 
   const onRefresh = async () => {
@@ -285,28 +375,39 @@ const AccountsScreen = ({ navigation, route }) => {
 
   if (loading) {
     return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#d4af37" />
+      <View style={[styles.centered, { backgroundColor: colors.bgPrimary }]}>
+        <ActivityIndicator size="large" color={colors.accent} />
       </View>
     );
   }
 
   // Fetch account types for opening new account
   const fetchAccountTypes = async () => {
+    setLoadingAccountTypes(true);
+    setAccountTypes([]); // Clear previous data
+    
     try {
-      console.log('Fetching account types from:', `${API_URL}/account-types`);
-      const res = await fetch(`${API_URL}/account-types`);
+      // Create a promise that rejects after 15 seconds
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('timeout')), 15000)
+      );
+      
+      const fetchPromise = fetch(`${API_URL}/account-types`);
+      
+      // Race between fetch and timeout
+      const res = await Promise.race([fetchPromise, timeoutPromise]);
       const data = await res.json();
-      console.log('Account types response:', data);
-      if (data.success && data.accountTypes) {
+      
+      if (data.success && data.accountTypes && data.accountTypes.length > 0) {
         setAccountTypes(data.accountTypes);
       } else {
-        Alert.alert('Error', 'Failed to load account types');
+        setAccountTypes([]); // Will show "No account types" message
       }
     } catch (e) {
       console.error('Error fetching account types:', e);
-      Alert.alert('Error', 'Network error loading account types');
+      setAccountTypes([]); // Will show "No account types" message
     }
+    setLoadingAccountTypes(false);
   };
 
   const openNewAccount = async (accountType) => {
@@ -350,65 +451,212 @@ const AccountsScreen = ({ navigation, route }) => {
     }
   };
 
-  return (
-    <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={24} color="#fff" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>My Accounts</Text>
+  // Filter accounts based on active tab
+  const liveAccounts = accounts.filter(a => !a.accountTypeId?.isDemo && a.status === 'Active');
+  const demoAccounts = accounts.filter(a => a.accountTypeId?.isDemo && a.status === 'Active');
+  const archivedAccounts = accounts.filter(a => a.status !== 'Active');
+  const activeChallengeAccounts = challengeAccounts.filter(a => a.status !== 'FAILED' && a.status !== 'ARCHIVED');
+
+  const getTabAccounts = () => {
+    switch (activeTab) {
+      case 'live': return liveAccounts;
+      case 'demo': return demoAccounts;
+      case 'challenge': return activeChallengeAccounts;
+      case 'archive': return archivedAccounts;
+      default: return liveAccounts;
+    }
+  };
+
+  const renderChallengeAccount = (account) => (
+    <View key={account._id} style={styles.accountCard}>
+      <View style={styles.accountHeader}>
+        <View style={[styles.accountIconContainer, { backgroundColor: '#3b82f620' }]}>
+          <Ionicons name="trophy-outline" size={24} color="#3b82f6" />
+        </View>
+        <View style={styles.accountInfo}>
+          <Text style={styles.accountId}>{account.accountId}</Text>
+          <Text style={styles.accountType}>{account.challengeId?.name || 'Challenge'}</Text>
+        </View>
+        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(account.status) + '20' }]}>
+          <Text style={[styles.statusText, { color: getStatusColor(account.status) }]}>{account.status}</Text>
+        </View>
+      </View>
+
+      <View style={styles.balanceSection}>
+        <View style={styles.balanceRow}>
+          <View style={styles.balanceItem}>
+            <Text style={styles.balanceLabel}>Balance</Text>
+            <Text style={styles.balanceValue}>${(account.currentBalance || 0).toFixed(2)}</Text>
+          </View>
+          <View style={styles.balanceItem}>
+            <Text style={styles.balanceLabel}>Equity</Text>
+            <Text style={styles.balanceValue}>${(account.currentEquity || 0).toFixed(2)}</Text>
+          </View>
+          <View style={styles.balanceItem}>
+            <Text style={styles.balanceLabel}>Step</Text>
+            <Text style={styles.balanceValue}>{account.currentStep || 1}/{account.challengeId?.stepsCount || 2}</Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Challenge Progress */}
+      <View style={styles.challengeProgress}>
+        <View style={styles.progressRow}>
+          <Text style={styles.progressLabel}>Daily Drawdown</Text>
+          <Text style={[styles.progressValue, account.dailyDrawdownBreached && { color: '#ef4444' }]}>
+            ${(account.dailyDrawdown || 0).toFixed(2)} / ${(account.maxDailyDrawdown || 0).toFixed(2)}
+          </Text>
+        </View>
+        <View style={styles.progressRow}>
+          <Text style={styles.progressLabel}>Overall Drawdown</Text>
+          <Text style={[styles.progressValue, account.overallDrawdownBreached && { color: '#ef4444' }]}>
+            ${(account.overallDrawdown || 0).toFixed(2)} / ${(account.maxOverallDrawdown || 0).toFixed(2)}
+          </Text>
+        </View>
+        <View style={styles.progressRow}>
+          <Text style={styles.progressLabel}>Profit Target</Text>
+          <Text style={[styles.progressValue, { color: '#22c55e' }]}>
+            ${(account.totalProfit || 0).toFixed(2)} / ${(account.profitTarget || 0).toFixed(2)}
+          </Text>
+        </View>
+      </View>
+
+      {account.status === 'ACTIVE' && (
         <TouchableOpacity 
-          style={styles.openAccountBtn} 
+          style={[styles.tradeBtn, { backgroundColor: '#3b82f6' }]}
+          onPress={() => selectChallengeAccountForTrading(account)}
+        >
+          <Ionicons name="trending-up" size={18} color="#fff" />
+          <Text style={[styles.tradeBtnText, { color: '#fff' }]}>Trade Challenge</Text>
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'ACTIVE': return '#22c55e';
+      case 'PASSED': return '#3b82f6';
+      case 'FAILED': return '#ef4444';
+      case 'FUNDED': return '#2563eb';
+      default: return '#888';
+    }
+  };
+
+  const selectChallengeAccountForTrading = async (account) => {
+    // For challenge accounts, navigate with challenge account info
+    await SecureStore.setItemAsync('selectedChallengeAccountId', account._id);
+    navigation.navigate('MainTrading', { challengeAccountId: account._id });
+  };
+
+  return (
+    <View style={[styles.container, { backgroundColor: colors.bgPrimary }]}>
+      {/* Header */}
+      <View style={[styles.header, { backgroundColor: colors.bgPrimary }]}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+          <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
+        </TouchableOpacity>
+        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>My Accounts</Text>
+        <TouchableOpacity 
+          style={[styles.openAccountBtn, { backgroundColor: colors.accent, borderRadius: 20 }]} 
           onPress={() => { fetchAccountTypes(); setShowOpenAccountModal(true); }}
         >
-          <Ionicons name="add-circle" size={24} color="#d4af37" />
+          <Ionicons name="add" size={20} color="#fff" />
+        </TouchableOpacity>
+      </View>
+
+      {/* Account Type Tabs */}
+      <View style={[styles.tabsContainer, { backgroundColor: colors.bgSecondary, borderBottomColor: colors.border }]}>
+        <TouchableOpacity 
+          style={[styles.tab, activeTab === 'live' && { backgroundColor: colors.accent }]}
+          onPress={() => setActiveTab('live')}
+        >
+          <Text style={[styles.tabText, { color: colors.textMuted }, activeTab === 'live' && styles.tabTextActive]}>Live ({liveAccounts.length})</Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={[styles.tab, activeTab === 'demo' && { backgroundColor: colors.accent }]}
+          onPress={() => setActiveTab('demo')}
+        >
+          <Text style={[styles.tabText, { color: colors.textMuted }, activeTab === 'demo' && styles.tabTextActive]}>Demo ({demoAccounts.length})</Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={[styles.tab, activeTab === 'challenge' && { backgroundColor: colors.accent }]}
+          onPress={() => setActiveTab('challenge')}
+        >
+          <Text style={[styles.tabText, { color: colors.textMuted }, activeTab === 'challenge' && styles.tabTextActive]}>Challenge ({activeChallengeAccounts.length})</Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={[styles.tab, activeTab === 'archive' && { backgroundColor: colors.accent }]}
+          onPress={() => setActiveTab('archive')}
+        >
+          <Text style={[styles.tabText, { color: colors.textMuted }, activeTab === 'archive' && styles.tabTextActive]}>Archive ({archivedAccounts.length})</Text>
         </TouchableOpacity>
       </View>
 
       <ScrollView
         style={styles.content}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#d4af37" />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
       >
-        {accounts.length === 0 ? (
+        {activeTab === 'challenge' ? (
+          <>
+            {/* Buy Challenge Button */}
+            <TouchableOpacity 
+              style={[styles.buyChallengeBtn, { backgroundColor: colors.accent }]}
+              onPress={() => { fetchAvailableChallenges(); fetchWalletBalance(); setShowBuyChallengeModal(true); }}
+            >
+              <Ionicons name="add-circle" size={20} color="#fff" />
+              <Text style={[styles.buyChallengeBtnText, { color: '#fff' }]}>Buy New Challenge</Text>
+            </TouchableOpacity>
+
+            {activeChallengeAccounts.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Ionicons name="trophy-outline" size={64} color={colors.accent} />
+                <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>No Challenge Accounts</Text>
+                <Text style={[styles.emptyText, { color: colors.textMuted }]}>Purchase a challenge to start your prop trading journey.</Text>
+              </View>
+            ) : (
+              activeChallengeAccounts.map(renderChallengeAccount)
+            )}
+          </>
+        ) : getTabAccounts().length === 0 ? (
           <View style={styles.emptyState}>
-            <Ionicons name="wallet-outline" size={64} color="#000000" />
-            <Text style={styles.emptyTitle}>No Trading Accounts</Text>
-            <Text style={styles.emptyText}>You don't have any trading accounts yet.</Text>
+            <Ionicons name="wallet-outline" size={64} color="#666" />
+            <Text style={styles.emptyTitle}>No {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Accounts</Text>
+            <Text style={styles.emptyText}>You don't have any {activeTab} accounts yet.</Text>
           </View>
         ) : (
-          accounts.map((account) => {
+          getTabAccounts().map((account) => {
             return (
-              <View key={account._id} style={styles.accountCard}>
+              <View key={account._id} style={[styles.accountCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
                 {/* Account Header */}
                 <TouchableOpacity 
                   style={styles.accountHeader}
                   onPress={() => selectAccountForTrading(account)}
                 >
-                  <View style={styles.accountIconContainer}>
-                    <Ionicons name="briefcase-outline" size={24} color="#d4af37" />
+                  <View style={[styles.accountIconContainer, { backgroundColor: colors.accent + '20' }]}>
+                    <Ionicons name="briefcase-outline" size={24} color={colors.accent} />
                   </View>
                   <View style={styles.accountInfo}>
-                    <Text style={styles.accountId}>{account.accountId}</Text>
-                    <Text style={styles.accountType}>{account.accountTypeId?.name || account.accountType || 'Standard'}</Text>
+                    <Text style={[styles.accountId, { color: colors.textPrimary }]}>{account.accountId}</Text>
+                    <Text style={[styles.accountType, { color: colors.textMuted }]}>{account.accountTypeId?.name || account.accountType || 'Standard'}</Text>
                   </View>
-                  <Ionicons name="chevron-forward" size={20} color="#666" />
+                  <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
                 </TouchableOpacity>
 
                 {/* Balance Info */}
                 <View style={styles.balanceSection}>
                   <View style={styles.balanceRow}>
                     <View style={styles.balanceItem}>
-                      <Text style={styles.balanceLabel}>Balance</Text>
-                      <Text style={styles.balanceValue}>${(account.balance || 0).toFixed(2)}</Text>
+                      <Text style={[styles.balanceLabel, { color: colors.textMuted }]}>Balance</Text>
+                      <Text style={[styles.balanceValue, { color: colors.textPrimary }]}>${(account.balance || 0).toFixed(2)}</Text>
                     </View>
                     <View style={styles.balanceItem}>
-                      <Text style={styles.balanceLabel}>Equity</Text>
-                      <Text style={styles.balanceValue}>${((account.balance || 0) + (account.credit || 0)).toFixed(2)}</Text>
+                      <Text style={[styles.balanceLabel, { color: colors.textMuted }]}>Equity</Text>
+                      <Text style={[styles.balanceValue, { color: colors.textPrimary }]}>${((account.balance || 0) + (account.credit || 0)).toFixed(2)}</Text>
                     </View>
                     <View style={styles.balanceItem}>
-                      <Text style={styles.balanceLabel}>Leverage</Text>
-                      <Text style={styles.balanceValue}>{account.leverage || '1:100'}</Text>
+                      <Text style={[styles.balanceLabel, { color: colors.textMuted }]}>Leverage</Text>
+                      <Text style={[styles.balanceValue, { color: colors.textPrimary }]}>{account.leverage || '1:100'}</Text>
                     </View>
                   </View>
                 </View>
@@ -416,24 +664,24 @@ const AccountsScreen = ({ navigation, route }) => {
                 {/* Action Buttons */}
                 <View style={styles.actionButtons}>
                   <TouchableOpacity 
-                    style={styles.depositBtn}
+                    style={[styles.depositBtn, { backgroundColor: colors.accent }]}
                     onPress={() => handleDeposit(account)}
                   >
                     <Ionicons name="arrow-down-circle-outline" size={18} color="#000" />
                     <Text style={styles.depositBtnText}>Deposit</Text>
                   </TouchableOpacity>
                   <TouchableOpacity 
-                    style={styles.withdrawBtn}
+                    style={[styles.withdrawBtn, { backgroundColor: colors.bgSecondary, borderColor: colors.border }]}
                     onPress={() => handleWithdraw(account)}
                   >
-                    <Ionicons name="arrow-up-circle-outline" size={18} color="#fff" />
-                    <Text style={styles.withdrawBtnText}>Withdraw</Text>
+                    <Ionicons name="arrow-up-circle-outline" size={18} color={colors.textPrimary} />
+                    <Text style={[styles.withdrawBtnText, { color: colors.textPrimary }]}>Withdraw</Text>
                   </TouchableOpacity>
                 </View>
 
                 {/* Trade Button */}
                 <TouchableOpacity 
-                  style={styles.tradeBtn}
+                  style={[styles.tradeBtn, { backgroundColor: colors.accent }]}
                   onPress={() => selectAccountForTrading(account)}
                 >
                   <Ionicons name="trending-up" size={18} color="#000" />
@@ -449,41 +697,50 @@ const AccountsScreen = ({ navigation, route }) => {
       <Modal visible={showOpenAccountModal} animationType="slide" transparent onRequestClose={() => { setShowOpenAccountModal(false); setSelectedAccountType(null); }}>
         <View style={styles.modalOverlay}>
           <TouchableOpacity style={styles.modalBackdrop} onPress={() => { setShowOpenAccountModal(false); setSelectedAccountType(null); }} />
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, { backgroundColor: colors.bgCard }]}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Open New Account</Text>
+              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Open New Account</Text>
               <TouchableOpacity onPress={() => { setShowOpenAccountModal(false); setSelectedAccountType(null); }}>
-                <Ionicons name="close" size={24} color="#666" />
+                <Ionicons name="close" size={24} color={colors.textMuted} />
               </TouchableOpacity>
             </View>
             
             <ScrollView style={styles.accountTypesList}>
-                {accountTypes.length === 0 ? (
+                {loadingAccountTypes ? (
                   <View style={styles.loadingTypes}>
-                    <ActivityIndicator size="small" color="#d4af37" />
-                    <Text style={styles.loadingText}>Loading account types...</Text>
+                    <ActivityIndicator size="small" color={colors.accent} />
+                    <Text style={[styles.loadingText, { color: colors.textMuted }]}>Loading account types...</Text>
+                  </View>
+                ) : accountTypes.length === 0 ? (
+                  <View style={styles.loadingTypes}>
+                    <Ionicons name="briefcase-outline" size={48} color={colors.textMuted} />
+                    <Text style={[styles.loadingText, { color: colors.textPrimary, marginTop: 10, fontWeight: '600' }]}>No Account Types Available</Text>
+                    <Text style={[styles.loadingText, { color: colors.textMuted, marginTop: 5, fontSize: 13 }]}>Please contact support or try again later</Text>
+                    <TouchableOpacity onPress={fetchAccountTypes} style={{ marginTop: 15, paddingVertical: 10, paddingHorizontal: 20, backgroundColor: colors.accent, borderRadius: 8 }}>
+                      <Text style={{ color: '#fff', fontWeight: '600' }}>Retry</Text>
+                    </TouchableOpacity>
                   </View>
                 ) : (
                   accountTypes.map(type => (
                     <TouchableOpacity 
                       key={type._id}
-                      style={[styles.accountTypeItem, openingAccount && styles.buttonDisabled]}
+                      style={[styles.accountTypeItem, { backgroundColor: colors.bgSecondary }, openingAccount && styles.buttonDisabled]}
                       onPress={() => openNewAccount(type)}
                       disabled={openingAccount}
                     >
-                      <View style={styles.accountTypeIcon}>
-                        <Ionicons name={type.isDemo ? "flask" : "briefcase"} size={24} color="#d4af37" />
+                      <View style={[styles.accountTypeIcon, { backgroundColor: colors.accent + '20' }]}>
+                        <Ionicons name={type.isDemo ? "flask" : "briefcase"} size={24} color={colors.accent} />
                       </View>
                       <View style={styles.accountTypeInfo}>
-                        <Text style={styles.accountTypeName}>{type.name}</Text>
-                        <Text style={styles.accountTypeDesc}>{type.description || 'Standard trading account'}</Text>
+                        <Text style={[styles.accountTypeName, { color: colors.textPrimary }]}>{type.name}</Text>
+                        <Text style={[styles.accountTypeDesc, { color: colors.textMuted }]}>{type.description || 'Standard trading account'}</Text>
                         <View style={styles.accountTypeDetails}>
-                          <Text style={styles.accountTypeDetail}>Min: ${type.minDeposit || 0}</Text>
-                          <Text style={styles.accountTypeDetail}>Leverage: {type.leverage || '1:100'}</Text>
-                          {type.isDemo && <Text style={[styles.accountTypeDetail, {color: '#d4af37'}]}>Demo</Text>}
+                          <Text style={[styles.accountTypeDetail, { color: colors.textSecondary }]}>Min: ${type.minDeposit || 0}</Text>
+                          <Text style={[styles.accountTypeDetail, { color: colors.textSecondary }]}>Leverage: {type.leverage || '1:100'}</Text>
+                          {type.isDemo && <Text style={[styles.accountTypeDetail, {color: colors.accent}]}>Demo</Text>}
                         </View>
                       </View>
-                      <Ionicons name="chevron-forward" size={20} color="#666" />
+                      <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
                     </TouchableOpacity>
                   ))
                 )}
@@ -492,40 +749,99 @@ const AccountsScreen = ({ navigation, route }) => {
         </View>
       </Modal>
 
+      {/* Buy Challenge Modal */}
+      <Modal visible={showBuyChallengeModal} animationType="slide" transparent onRequestClose={() => setShowBuyChallengeModal(false)}>
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity style={styles.modalBackdrop} onPress={() => setShowBuyChallengeModal(false)} />
+          <View style={[styles.modalContent, { backgroundColor: colors.bgCard }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Buy Challenge</Text>
+              <TouchableOpacity onPress={() => setShowBuyChallengeModal(false)}>
+                <Ionicons name="close" size={24} color={colors.textMuted} />
+              </TouchableOpacity>
+            </View>
+            
+            <View style={[styles.walletBalanceRow, { backgroundColor: colors.bgSecondary, borderColor: colors.border }]}>
+              <Text style={[styles.walletBalanceLabel, { color: colors.textMuted }]}>Wallet Balance:</Text>
+              <Text style={[styles.walletBalanceValue, { color: colors.textPrimary }]}>${walletBalance.toFixed(2)}</Text>
+            </View>
+
+            <ScrollView style={styles.challengesList}>
+              {!challengeModeEnabled ? (
+                <View style={styles.loadingTypes}>
+                  <Ionicons name="lock-closed-outline" size={48} color={colors.textMuted} />
+                  <Text style={[styles.loadingText, { color: colors.textMuted }]}>Challenge mode is currently disabled</Text>
+                </View>
+              ) : availableChallenges.length === 0 ? (
+                <View style={styles.loadingTypes}>
+                  <ActivityIndicator size="small" color={colors.accent} />
+                  <Text style={[styles.loadingText, { color: colors.textMuted }]}>Loading challenges...</Text>
+                </View>
+              ) : (
+                availableChallenges.map(challenge => (
+                  <TouchableOpacity 
+                    key={challenge._id}
+                    style={[styles.challengeItem, { backgroundColor: colors.bgSecondary, borderColor: colors.border }, buyingChallenge && styles.buttonDisabled]}
+                    onPress={() => buyChallenge(challenge)}
+                    disabled={buyingChallenge}
+                  >
+                    <View style={[styles.challengeIcon, { backgroundColor: colors.accent + '20' }]}>
+                      <Ionicons name="trophy" size={24} color={colors.accent} />
+                    </View>
+                    <View style={styles.challengeInfo}>
+                      <Text style={[styles.challengeName, { color: colors.textPrimary }]}>{challenge.name}</Text>
+                      <Text style={[styles.challengeDesc, { color: colors.textMuted }]}>Fund Size: ${(challenge.fundSize || 0).toLocaleString()}</Text>
+                      <View style={styles.challengeDetails}>
+                        <Text style={[styles.challengeDetail, { color: colors.textSecondary }]}>Steps: {challenge.stepsCount || 2}</Text>
+                        <Text style={[styles.challengeDetail, { color: colors.textSecondary }]}>Profit: {challenge.profitTarget || 10}%</Text>
+                        <Text style={[styles.challengeDetail, { color: colors.accent }]}>Fee: ${challenge.challengeFee || 0}</Text>
+                      </View>
+                    </View>
+                    <View style={[styles.buyBtnSmall, { backgroundColor: colors.accent }]}>
+                      <Text style={styles.buyBtnSmallText}>Buy</Text>
+                    </View>
+                  </TouchableOpacity>
+                ))
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
       {/* Deposit Modal - Transfer from Wallet to Account */}
       <Modal visible={showTransferModal} animationType="slide" transparent onRequestClose={() => setShowTransferModal(false)}>
         <View style={styles.modalOverlay}>
           <TouchableOpacity style={styles.modalBackdrop} onPress={() => setShowTransferModal(false)} />
-          <View style={styles.transferModalContent}>
+          <View style={[styles.transferModalContent, { backgroundColor: colors.bgCard }]}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Deposit to Account</Text>
+              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Deposit to Account</Text>
               <TouchableOpacity onPress={() => setShowTransferModal(false)}>
-                <Ionicons name="close" size={24} color="#666" />
+                <Ionicons name="close" size={24} color={colors.textMuted} />
               </TouchableOpacity>
             </View>
             
-            <View style={styles.transferInfo}>
-              <View style={styles.transferInfoRow}>
-                <Text style={styles.transferLabel}>From</Text>
-                <Text style={styles.transferValue}>Main Wallet</Text>
+            <View style={[styles.transferInfo, { backgroundColor: colors.bgSecondary }]}>
+              <View style={[styles.transferInfoRow, { borderBottomColor: colors.border }]}>
+                <Text style={[styles.transferLabel, { color: colors.textMuted }]}>From</Text>
+                <Text style={[styles.transferValue, { color: colors.textPrimary }]}>Main Wallet</Text>
               </View>
-              <View style={styles.transferInfoRow}>
-                <Text style={styles.transferLabel}>Available</Text>
-                <Text style={styles.transferValueGold}>${walletBalance.toFixed(2)}</Text>
+              <View style={[styles.transferInfoRow, { borderBottomColor: colors.border }]}>
+                <Text style={[styles.transferLabel, { color: colors.textMuted }]}>Available</Text>
+                <Text style={[styles.transferValueGold, { color: colors.primary }]}>${walletBalance.toFixed(2)}</Text>
               </View>
-              <View style={styles.transferInfoRow}>
-                <Text style={styles.transferLabel}>To</Text>
-                <Text style={styles.transferValue}>{selectedAccount?.accountId}</Text>
+              <View style={[styles.transferInfoRow, { borderBottomColor: colors.border }]}>
+                <Text style={[styles.transferLabel, { color: colors.textMuted }]}>To</Text>
+                <Text style={[styles.transferValue, { color: colors.textPrimary }]}>{selectedAccount?.accountId}</Text>
               </View>
             </View>
 
-            <Text style={styles.inputLabel}>Amount (USD)</Text>
+            <Text style={[styles.inputLabel, { color: colors.textMuted }]}>Amount (USD)</Text>
             <TextInput
-              style={styles.transferInput}
+              style={[styles.transferInput, { backgroundColor: colors.bgSecondary, borderColor: colors.border, color: colors.textPrimary }]}
               value={transferAmount}
               onChangeText={setTransferAmount}
               placeholder="Enter amount"
-              placeholderTextColor="#666"
+              placeholderTextColor={colors.textMuted}
               keyboardType="numeric"
             />
 
@@ -548,41 +864,41 @@ const AccountsScreen = ({ navigation, route }) => {
       <Modal visible={showWithdrawModal} animationType="slide" transparent onRequestClose={() => setShowWithdrawModal(false)}>
         <View style={styles.modalOverlay}>
           <TouchableOpacity style={styles.modalBackdrop} onPress={() => setShowWithdrawModal(false)} />
-          <View style={styles.transferModalContent}>
+          <View style={[styles.transferModalContent, { backgroundColor: colors.bgCard }]}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Withdraw to Wallet</Text>
+              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Withdraw to Wallet</Text>
               <TouchableOpacity onPress={() => setShowWithdrawModal(false)}>
-                <Ionicons name="close" size={24} color="#666" />
+                <Ionicons name="close" size={24} color={colors.textMuted} />
               </TouchableOpacity>
             </View>
             
-            <View style={styles.transferInfo}>
-              <View style={styles.transferInfoRow}>
-                <Text style={styles.transferLabel}>From</Text>
-                <Text style={styles.transferValue}>{selectedAccount?.accountId}</Text>
+            <View style={[styles.transferInfo, { backgroundColor: colors.bgSecondary }]}>
+              <View style={[styles.transferInfoRow, { borderBottomColor: colors.border }]}>
+                <Text style={[styles.transferLabel, { color: colors.textMuted }]}>From</Text>
+                <Text style={[styles.transferValue, { color: colors.textPrimary }]}>{selectedAccount?.accountId}</Text>
               </View>
-              <View style={styles.transferInfoRow}>
-                <Text style={styles.transferLabel}>Available</Text>
-                <Text style={styles.transferValueGold}>${(selectedAccount?.balance || 0).toFixed(2)}</Text>
+              <View style={[styles.transferInfoRow, { borderBottomColor: colors.border }]}>
+                <Text style={[styles.transferLabel, { color: colors.textMuted }]}>Available</Text>
+                <Text style={[styles.transferValueGold, { color: colors.primary }]}>${(selectedAccount?.balance || 0).toFixed(2)}</Text>
               </View>
-              <View style={styles.transferInfoRow}>
-                <Text style={styles.transferLabel}>To</Text>
-                <Text style={styles.transferValue}>Main Wallet</Text>
+              <View style={[styles.transferInfoRow, { borderBottomColor: colors.border }]}>
+                <Text style={[styles.transferLabel, { color: colors.textMuted }]}>To</Text>
+                <Text style={[styles.transferValue, { color: colors.textPrimary }]}>Main Wallet</Text>
               </View>
             </View>
 
-            <Text style={styles.inputLabel}>Amount (USD)</Text>
+            <Text style={[styles.inputLabel, { color: colors.textMuted }]}>Amount (USD)</Text>
             <TextInput
-              style={styles.transferInput}
+              style={[styles.transferInput, { backgroundColor: colors.bgSecondary, borderColor: colors.border, color: colors.textPrimary }]}
               value={transferAmount}
               onChangeText={setTransferAmount}
               placeholder="Enter amount"
-              placeholderTextColor="#666"
+              placeholderTextColor={colors.textMuted}
               keyboardType="numeric"
             />
 
             <TouchableOpacity 
-              style={[styles.withdrawSubmitBtn, isTransferring && styles.btnDisabled]}
+              style={[styles.withdrawSubmitBtn, { backgroundColor: colors.primary }, isTransferring && styles.btnDisabled]}
               onPress={handleWithdrawFromAccount}
               disabled={isTransferring}
             >
@@ -600,56 +916,56 @@ const AccountsScreen = ({ navigation, route }) => {
       <Modal visible={showAccountTransferModal} animationType="slide" transparent onRequestClose={() => setShowAccountTransferModal(false)}>
         <View style={styles.modalOverlay}>
           <TouchableOpacity style={styles.modalBackdrop} onPress={() => setShowAccountTransferModal(false)} />
-          <View style={styles.transferModalContent}>
+          <View style={[styles.transferModalContent, { backgroundColor: colors.bgCard }]}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Transfer Between Accounts</Text>
+              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Transfer Between Accounts</Text>
               <TouchableOpacity onPress={() => setShowAccountTransferModal(false)}>
-                <Ionicons name="close" size={24} color="#666" />
+                <Ionicons name="close" size={24} color={colors.textMuted} />
               </TouchableOpacity>
             </View>
             
-            <View style={styles.transferInfo}>
-              <View style={styles.transferInfoRow}>
-                <Text style={styles.transferLabel}>From</Text>
-                <Text style={styles.transferValue}>{selectedAccount?.accountId}</Text>
+            <View style={[styles.transferInfo, { backgroundColor: colors.bgSecondary }]}>
+              <View style={[styles.transferInfoRow, { borderBottomColor: colors.border }]}>
+                <Text style={[styles.transferLabel, { color: colors.textMuted }]}>From</Text>
+                <Text style={[styles.transferValue, { color: colors.textPrimary }]}>{selectedAccount?.accountId}</Text>
               </View>
-              <View style={styles.transferInfoRow}>
-                <Text style={styles.transferLabel}>Available</Text>
-                <Text style={styles.transferValueGold}>${(selectedAccount?.balance || 0).toFixed(2)}</Text>
+              <View style={[styles.transferInfoRow, { borderBottomColor: colors.border }]}>
+                <Text style={[styles.transferLabel, { color: colors.textMuted }]}>Available</Text>
+                <Text style={[styles.transferValueGold, { color: colors.primary }]}>${(selectedAccount?.balance || 0).toFixed(2)}</Text>
               </View>
             </View>
 
-            <Text style={styles.inputLabel}>Select Target Account</Text>
+            <Text style={[styles.inputLabel, { color: colors.textMuted }]}>Select Target Account</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.accountsScroll}>
               {accounts.filter(a => a._id !== selectedAccount?._id).map(account => (
                 <TouchableOpacity
                   key={account._id}
-                  style={[styles.accountSelectCard, targetAccount?._id === account._id && styles.accountSelectCardActive]}
+                  style={[styles.accountSelectCard, { backgroundColor: colors.bgSecondary, borderColor: colors.border }, targetAccount?._id === account._id && styles.accountSelectCardActive]}
                   onPress={() => setTargetAccount(account)}
                 >
-                  <Text style={[styles.accountSelectId, targetAccount?._id === account._id && { color: '#000' }]}>{account.accountId}</Text>
-                  <Text style={styles.accountSelectBalance}>${(account.balance || 0).toFixed(2)}</Text>
+                  <Text style={[styles.accountSelectId, { color: colors.textPrimary }, targetAccount?._id === account._id && { color: '#fff' }]}>{account.accountId}</Text>
+                  <Text style={[styles.accountSelectBalance, { color: colors.textMuted }]}>${(account.balance || 0).toFixed(2)}</Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
 
-            <Text style={styles.inputLabel}>Amount (USD)</Text>
+            <Text style={[styles.inputLabel, { color: colors.textMuted }]}>Amount (USD)</Text>
             <TextInput
-              style={styles.transferInput}
+              style={[styles.transferInput, { backgroundColor: colors.bgSecondary, borderColor: colors.border, color: colors.textPrimary }]}
               value={transferAmount}
               onChangeText={setTransferAmount}
               placeholder="Enter amount"
-              placeholderTextColor="#666"
+              placeholderTextColor={colors.textMuted}
               keyboardType="numeric"
             />
 
             <TouchableOpacity 
-              style={[styles.transferSubmitBtn, isTransferring && styles.btnDisabled]}
+              style={[styles.transferSubmitBtn, { backgroundColor: colors.primary }, isTransferring && styles.btnDisabled]}
               onPress={handleAccountToAccountTransfer}
               disabled={isTransferring}
             >
               {isTransferring ? (
-                <ActivityIndicator color="#000" />
+                <ActivityIndicator color="#fff" />
               ) : (
                 <Text style={styles.transferSubmitBtnText}>Transfer</Text>
               )}
@@ -665,13 +981,11 @@ const AccountsScreen = ({ navigation, route }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000000',
   },
   centered: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#000000',
   },
   header: {
     flexDirection: 'row',
@@ -715,7 +1029,6 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   accountCard: {
-    backgroundColor: '#000000',
     borderRadius: 16,
     padding: 16,
     marginBottom: 16,
@@ -723,13 +1036,13 @@ const styles = StyleSheet.create({
     borderColor: '#000000',
   },
   primaryCard: {
-    borderColor: '#d4af37',
+    borderColor: '#2563eb',
     borderWidth: 2,
   },
   primaryBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#d4af37',
+    backgroundColor: '#2563eb',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
@@ -751,7 +1064,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#d4af3720',
+    backgroundColor: '#2563eb20',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -770,7 +1083,6 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   balanceSection: {
-    backgroundColor: '#000000',
     borderRadius: 12,
     padding: 12,
     marginBottom: 16,
@@ -804,7 +1116,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 6,
     paddingVertical: 12,
-    backgroundColor: '#d4af37',
+    backgroundColor: '#2563eb',
     borderRadius: 10,
   },
   depositBtnText: {
@@ -819,10 +1131,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 6,
     paddingVertical: 12,
-    backgroundColor: '#000000',
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#000000',
   },
   withdrawBtnText: {
     color: '#fff',
@@ -838,7 +1148,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   setPrimaryBtnText: {
-    color: '#d4af37',
+    color: '#2563eb',
     fontSize: 14,
   },
   tradeBtn: {
@@ -847,7 +1157,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     paddingVertical: 14,
-    backgroundColor: '#d4af37',
+    backgroundColor: '#2563eb',
     borderRadius: 10,
   },
   tradeBtnText: {
@@ -860,6 +1170,156 @@ const styles = StyleSheet.create({
     height: 40,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  // Tabs Styles
+  tabsContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1a1a1a',
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 8,
+    alignItems: 'center',
+    borderRadius: 8,
+  },
+  tabActive: {
+    backgroundColor: '#2563eb',
+  },
+  tabText: {
+    color: '#888',
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  tabTextActive: {
+    color: '#000',
+    fontWeight: '600',
+  },
+  // Buy Challenge Styles
+  buyChallengeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    marginBottom: 16,
+    marginHorizontal: 16,
+  },
+  buyChallengeBtnText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  walletBalanceRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#0a0a0a',
+    marginHorizontal: 16,
+    borderRadius: 12,
+    marginBottom: 8,
+  },
+  walletBalanceLabel: {
+    color: '#888',
+    fontSize: 14,
+  },
+  walletBalanceValue: {
+    color: '#2563eb',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  challengesList: {
+    paddingHorizontal: 16,
+    paddingBottom: 40,
+  },
+  challengeItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    marginVertical: 6,
+    backgroundColor: '#0a0a0a',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#1a1a1a',
+  },
+  challengeIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#3b82f620',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  challengeInfo: {
+    flex: 1,
+  },
+  challengeName: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  challengeDesc: {
+    color: '#888',
+    fontSize: 12,
+    marginTop: 2,
+  },
+  challengeDetails: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 6,
+  },
+  challengeDetail: {
+    color: '#666',
+    fontSize: 11,
+  },
+  buyBtnSmall: {
+    backgroundColor: '#3b82f6',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  buyBtnSmallText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  // Challenge Account Styles
+  statusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  statusText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  challengeProgress: {
+    backgroundColor: '#0a0a0a',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+  },
+  progressRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 6,
+  },
+  progressLabel: {
+    color: '#888',
+    fontSize: 12,
+  },
+  progressValue: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
   },
   modalOverlay: {
     flex: 1,
@@ -874,21 +1334,21 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.7)',
   },
   modalContent: {
-    backgroundColor: '#000000',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     maxHeight: '70%',
+    paddingTop: 16,
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
+    marginBottom: 16,
+    paddingHorizontal: 16,
+    paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#000000',
   },
   modalTitle: {
-    color: '#fff',
     fontSize: 18,
     fontWeight: 'bold',
   },
@@ -909,14 +1369,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     marginVertical: 6,
-    backgroundColor: '#000000',
     borderRadius: 12,
   },
   accountTypeIcon: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#d4af3720',
+    backgroundColor: '#2563eb20',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -925,7 +1384,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   accountTypeName: {
-    color: '#fff',
     fontSize: 16,
     fontWeight: '600',
   },
@@ -960,7 +1418,7 @@ const styles = StyleSheet.create({
   },
   createAccountBtn: {
     flex: 1,
-    backgroundColor: '#d4af37',
+    backgroundColor: '#2563eb',
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
@@ -976,14 +1434,12 @@ const styles = StyleSheet.create({
   
   // Transfer Modal Styles
   transferModalContent: {
-    backgroundColor: '#000000',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 20,
     paddingBottom: 40,
   },
   transferInfo: {
-    backgroundColor: '#000000',
     borderRadius: 12,
     padding: 16,
     marginBottom: 20,
@@ -994,19 +1450,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#000000',
   },
   transferLabel: {
     color: '#888',
     fontSize: 14,
   },
   transferValue: {
-    color: '#fff',
     fontSize: 14,
     fontWeight: '600',
   },
   transferValueGold: {
-    color: '#d4af37',
+    color: '#2563eb',
     fontSize: 16,
     fontWeight: 'bold',
   },
@@ -1017,17 +1471,14 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   transferInput: {
-    backgroundColor: '#000000',
     borderWidth: 1,
-    borderColor: '#000000',
     borderRadius: 12,
     padding: 16,
-    color: '#fff',
     fontSize: 18,
     textAlign: 'center',
   },
   transferSubmitBtn: {
-    backgroundColor: '#d4af37',
+    backgroundColor: '#2563eb',
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
@@ -1039,7 +1490,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   withdrawSubmitBtn: {
-    backgroundColor: '#d4af37',
+    backgroundColor: '#2563eb',
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
@@ -1054,7 +1505,6 @@ const styles = StyleSheet.create({
     marginVertical: 8,
   },
   accountSelectCard: {
-    backgroundColor: '#000000',
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderRadius: 12,
@@ -1062,14 +1512,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     minWidth: 100,
     borderWidth: 1,
-    borderColor: '#000000',
   },
   accountSelectCardActive: {
-    backgroundColor: '#d4af37',
-    borderColor: '#d4af37',
+    backgroundColor: '#2563eb',
+    borderColor: '#2563eb',
   },
   accountSelectId: {
-    color: '#fff',
     fontSize: 14,
     fontWeight: '600',
   },

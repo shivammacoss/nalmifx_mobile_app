@@ -14,8 +14,10 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
 import { API_URL } from '../config';
+import { useTheme } from '../context/ThemeContext';
 
 const SupportScreen = ({ navigation }) => {
+  const { colors, isDark } = useTheme();
   const [user, setUser] = useState(null);
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -39,6 +41,8 @@ const SupportScreen = ({ navigation }) => {
 
   useEffect(() => {
     if (user) {
+      // Set loading false early to show UI, then fetch data in background
+      setLoading(false);
       fetchTickets();
     }
   }, [user]);
@@ -62,7 +66,6 @@ const SupportScreen = ({ navigation }) => {
     } catch (e) {
       console.error('Error fetching tickets:', e);
     }
-    setLoading(false);
     setRefreshing(false);
   };
 
@@ -129,9 +132,9 @@ const SupportScreen = ({ navigation }) => {
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'OPEN': return '#d4af37';
-      case 'IN_PROGRESS': return '#d4af37';
-      case 'RESOLVED': return '#d4af37';
+      case 'OPEN': return '#2563eb';
+      case 'IN_PROGRESS': return '#2563eb';
+      case 'RESOLVED': return '#2563eb';
       case 'CLOSED': return '#666';
       default: return '#666';
     }
@@ -139,9 +142,9 @@ const SupportScreen = ({ navigation }) => {
 
   const getPriorityColor = (priority) => {
     switch (priority) {
-      case 'HIGH': return '#d4af37';
-      case 'MEDIUM': return '#d4af37';
-      case 'LOW': return '#d4af37';
+      case 'HIGH': return '#2563eb';
+      case 'MEDIUM': return '#2563eb';
+      case 'LOW': return '#2563eb';
       default: return '#666';
     }
   };
@@ -154,35 +157,35 @@ const SupportScreen = ({ navigation }) => {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#d4af37" />
+      <View style={[styles.loadingContainer, { backgroundColor: colors.bgPrimary }]}>
+        <ActivityIndicator size="large" color={colors.accent} />
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.bgPrimary }]}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: colors.bgPrimary }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={24} color="#fff" />
+          <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Support</Text>
+        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Support</Text>
         <TouchableOpacity onPress={() => setShowNewTicketModal(true)} style={styles.addBtn}>
-          <Ionicons name="add" size={24} color="#d4af37" />
+          <Ionicons name="add" size={24} color={colors.accent} />
         </TouchableOpacity>
       </View>
 
       <ScrollView
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchTickets(); }} tintColor="#d4af37" />
+          <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchTickets(); }} tintColor={colors.accent} />
         }
       >
         {tickets.length === 0 ? (
           <View style={styles.emptyState}>
-            <Ionicons name="chatbubbles-outline" size={64} color="#000000" />
-            <Text style={styles.emptyTitle}>No Support Tickets</Text>
-            <Text style={styles.emptyText}>Create a ticket if you need help</Text>
+            <Ionicons name="chatbubbles-outline" size={64} color={colors.textMuted} />
+            <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>No Support Tickets</Text>
+            <Text style={[styles.emptyText, { color: colors.textMuted }]}>Create a ticket if you need help</Text>
             <TouchableOpacity style={styles.createBtn} onPress={() => setShowNewTicketModal(true)}>
               <Text style={styles.createBtnText}>Create Ticket</Text>
             </TouchableOpacity>
@@ -192,11 +195,11 @@ const SupportScreen = ({ navigation }) => {
             {tickets.map((ticket) => (
               <TouchableOpacity 
                 key={ticket._id} 
-                style={styles.ticketItem}
+                style={[styles.ticketItem, { backgroundColor: colors.bgCard }]}
                 onPress={() => { setSelectedTicket(ticket); setShowTicketModal(true); }}
               >
                 <View style={styles.ticketHeader}>
-                  <Text style={styles.ticketSubject} numberOfLines={1}>{ticket.subject}</Text>
+                  <Text style={[styles.ticketSubject, { color: colors.textPrimary }]} numberOfLines={1}>{ticket.subject}</Text>
                   <View style={[styles.statusBadge, { backgroundColor: getStatusColor(ticket.status) + '20' }]}>
                     <Text style={[styles.statusText, { color: getStatusColor(ticket.status) }]}>{ticket.status}</Text>
                   </View>
@@ -217,43 +220,43 @@ const SupportScreen = ({ navigation }) => {
       {/* New Ticket Modal */}
       <Modal visible={showNewTicketModal} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, { backgroundColor: colors.bgCard }]}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>New Support Ticket</Text>
+              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>New Support Ticket</Text>
               <TouchableOpacity onPress={() => setShowNewTicketModal(false)}>
-                <Ionicons name="close" size={24} color="#fff" />
+                <Ionicons name="close" size={24} color={colors.textMuted} />
               </TouchableOpacity>
             </View>
 
-            <Text style={styles.inputLabel}>Subject</Text>
+            <Text style={[styles.inputLabel, { color: colors.textMuted }]}>Subject</Text>
             <TextInput
-              style={styles.input}
+              style={[styles.input, { backgroundColor: colors.bgSecondary, borderWidth: 1, borderColor: colors.border, color: colors.textPrimary }]}
               value={newTicket.subject}
               onChangeText={(text) => setNewTicket({ ...newTicket, subject: text })}
               placeholder="Enter subject"
-              placeholderTextColor="#666"
+              placeholderTextColor={colors.textMuted}
             />
 
-            <Text style={styles.inputLabel}>Priority</Text>
+            <Text style={[styles.inputLabel, { color: colors.textMuted }]}>Priority</Text>
             <View style={styles.priorityOptions}>
               {['LOW', 'MEDIUM', 'HIGH'].map((p) => (
                 <TouchableOpacity
                   key={p}
-                  style={[styles.priorityOption, newTicket.priority === p && styles.priorityOptionActive]}
+                  style={[styles.priorityOption, { backgroundColor: colors.bgSecondary }, newTicket.priority === p && styles.priorityOptionActive]}
                   onPress={() => setNewTicket({ ...newTicket, priority: p })}
                 >
-                  <Text style={[styles.priorityOptionText, newTicket.priority === p && styles.priorityOptionTextActive]}>{p}</Text>
+                  <Text style={[styles.priorityOptionText, { color: colors.textMuted }, newTicket.priority === p && styles.priorityOptionTextActive]}>{p}</Text>
                 </TouchableOpacity>
               ))}
             </View>
 
-            <Text style={styles.inputLabel}>Message</Text>
+            <Text style={[styles.inputLabel, { color: colors.textMuted }]}>Message</Text>
             <TextInput
-              style={[styles.input, styles.textArea]}
+              style={[styles.input, styles.textArea, { backgroundColor: colors.bgSecondary, borderWidth: 1, borderColor: colors.border, color: colors.textPrimary }]}
               value={newTicket.message}
               onChangeText={(text) => setNewTicket({ ...newTicket, message: text })}
               placeholder="Describe your issue..."
-              placeholderTextColor="#666"
+              placeholderTextColor={colors.textMuted}
               multiline
               numberOfLines={4}
             />
@@ -276,11 +279,11 @@ const SupportScreen = ({ navigation }) => {
       {/* Ticket Detail Modal */}
       <Modal visible={showTicketModal} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { maxHeight: '90%' }]}>
+          <View style={[styles.modalContent, { maxHeight: '90%', backgroundColor: colors.bgCard }]}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle} numberOfLines={1}>{selectedTicket?.subject}</Text>
+              <Text style={[styles.modalTitle, { color: colors.textPrimary }]} numberOfLines={1}>{selectedTicket?.subject}</Text>
               <TouchableOpacity onPress={() => setShowTicketModal(false)}>
-                <Ionicons name="close" size={24} color="#fff" />
+                <Ionicons name="close" size={24} color={colors.textMuted} />
               </TouchableOpacity>
             </View>
 
@@ -330,63 +333,63 @@ const SupportScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000000' },
-  loadingContainer: { flex: 1, backgroundColor: '#000000', justifyContent: 'center', alignItems: 'center' },
+  container: { flex: 1 },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 60, paddingBottom: 16 },
   backBtn: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
-  headerTitle: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
+  headerTitle: { fontSize: 18, fontWeight: 'bold' },
   addBtn: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
   
   emptyState: { alignItems: 'center', paddingVertical: 80 },
-  emptyTitle: { color: '#fff', fontSize: 20, fontWeight: '600', marginTop: 16 },
+  emptyTitle: { fontSize: 20, fontWeight: '600', marginTop: 16 },
   emptyText: { color: '#666', fontSize: 14, marginTop: 8 },
-  createBtn: { backgroundColor: '#d4af37', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12, marginTop: 24 },
+  createBtn: { backgroundColor: '#2563eb', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12, marginTop: 24 },
   createBtnText: { color: '#000', fontSize: 16, fontWeight: '600' },
   
   ticketsList: { padding: 16 },
-  ticketItem: { backgroundColor: '#000000', borderRadius: 12, padding: 16, marginBottom: 12 },
+  ticketItem: { borderRadius: 12, padding: 16, marginBottom: 12 },
   ticketHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  ticketSubject: { color: '#fff', fontSize: 16, fontWeight: '600', flex: 1, marginRight: 8 },
+  ticketSubject: { fontSize: 16, fontWeight: '600', flex: 1, marginRight: 8 },
   statusBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
   statusText: { fontSize: 10, fontWeight: '600' },
   ticketMessage: { color: '#666', fontSize: 14, marginTop: 8 },
   ticketFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 },
-  ticketDate: { color: '#000000', fontSize: 12 },
+  ticketDate: { fontSize: 12 },
   priorityBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4 },
   priorityText: { fontSize: 10, fontWeight: '600' },
   
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'flex-end' },
-  modalContent: { backgroundColor: '#000000', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: 40 },
+  modalContent: { borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: 40 },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
-  modalTitle: { color: '#fff', fontSize: 18, fontWeight: 'bold', flex: 1, marginRight: 16 },
+  modalTitle: { fontSize: 18, fontWeight: 'bold', flex: 1, marginRight: 16 },
   
-  inputLabel: { color: '#666', fontSize: 12, marginBottom: 8, marginTop: 16 },
-  input: { backgroundColor: '#000000', borderRadius: 12, padding: 16, color: '#fff', fontSize: 16 },
+  inputLabel: { fontSize: 12, marginBottom: 8, marginTop: 16 },
+  input: { borderRadius: 12, padding: 16, fontSize: 16 },
   textArea: { height: 120, textAlignVertical: 'top' },
   
   priorityOptions: { flexDirection: 'row', gap: 8 },
-  priorityOption: { flex: 1, backgroundColor: '#000000', padding: 12, borderRadius: 8, alignItems: 'center' },
-  priorityOptionActive: { backgroundColor: '#d4af37' },
+  priorityOption: { flex: 1, padding: 12, borderRadius: 8, alignItems: 'center' },
+  priorityOptionActive: { backgroundColor: '#2563eb' },
   priorityOptionText: { color: '#666', fontSize: 14, fontWeight: '500' },
   priorityOptionTextActive: { color: '#000' },
   
-  submitBtn: { backgroundColor: '#d4af37', padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 24 },
+  submitBtn: { backgroundColor: '#2563eb', padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 24 },
   submitBtnDisabled: { opacity: 0.6 },
   submitBtnText: { color: '#000', fontSize: 16, fontWeight: 'bold' },
   
   messagesContainer: { maxHeight: 400, marginBottom: 16 },
   messageItem: { padding: 12, borderRadius: 12, marginBottom: 8 },
-  userMessage: { backgroundColor: '#000000', marginLeft: 40 },
-  adminMessage: { backgroundColor: '#d4af3720', marginRight: 40 },
+  userMessage: { marginLeft: 40 },
+  adminMessage: { backgroundColor: '#2563eb20', marginRight: 40 },
   messageHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
-  messageSender: { color: '#d4af37', fontSize: 12, fontWeight: '600' },
+  messageSender: { color: '#2563eb', fontSize: 12, fontWeight: '600' },
   messageTime: { color: '#666', fontSize: 10 },
-  messageText: { color: '#fff', fontSize: 14 },
+  messageText: { fontSize: 14 },
   
   replySection: { flexDirection: 'row', gap: 8, alignItems: 'flex-end' },
-  replyInput: { flex: 1, backgroundColor: '#000000', borderRadius: 12, padding: 12, color: '#fff', fontSize: 14, maxHeight: 100 },
-  sendBtn: { backgroundColor: '#d4af37', width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center' },
+  replyInput: { flex: 1, borderRadius: 12, padding: 12, fontSize: 14, maxHeight: 100 },
+  sendBtn: { backgroundColor: '#2563eb', width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center' },
 });
 
 export default SupportScreen;

@@ -11,8 +11,10 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
 import { API_URL } from '../config';
+import { useTheme } from '../context/ThemeContext';
 
 const NotificationsScreen = ({ navigation }) => {
+  const { colors, isDark } = useTheme();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -178,7 +180,7 @@ const NotificationsScreen = ({ navigation }) => {
       case 'STOP_LOSS_HIT':
         return { name: 'alert-circle', color: '#ef4444', bg: '#ef444420' };
       case 'TAKE_PROFIT_HIT':
-        return { name: 'trophy', color: '#d4af37', bg: '#d4af3720' };
+        return { name: 'trophy', color: '#2563eb', bg: '#2563eb20' };
       case 'PENDING_ORDER':
         return { name: 'time', color: '#a855f7', bg: '#a855f720' };
       case 'PENDING_TRIGGERED':
@@ -231,20 +233,20 @@ const NotificationsScreen = ({ navigation }) => {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#d4af37" />
+      <View style={[styles.loadingContainer, { backgroundColor: colors.bgPrimary }]}>
+        <ActivityIndicator size="large" color={colors.accent} />
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.bgPrimary }]}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: colors.bgPrimary }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={24} color="#fff" />
+          <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Notifications</Text>
+        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Notifications</Text>
         {unreadCount > 0 ? (
           <TouchableOpacity onPress={markAllAsRead} style={styles.markAllBtn}>
             <Text style={styles.markAllText}>Mark all read</Text>
@@ -263,16 +265,16 @@ const NotificationsScreen = ({ navigation }) => {
       )}
 
       <ScrollView
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#d4af37" />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
         showsVerticalScrollIndicator={false}
       >
         {Object.keys(groupedNotifications).length === 0 ? (
           <View style={styles.emptyState}>
-            <View style={styles.emptyIcon}>
-              <Ionicons name="notifications-off-outline" size={48} color="#333" />
+            <View style={[styles.emptyIcon, { backgroundColor: colors.bgSecondary }]}>
+              <Ionicons name="notifications-off-outline" size={48} color={colors.textMuted} />
             </View>
-            <Text style={styles.emptyTitle}>No Notifications</Text>
-            <Text style={styles.emptyText}>You're all caught up! New notifications will appear here.</Text>
+            <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>No Notifications</Text>
+            <Text style={[styles.emptyText, { color: colors.textMuted }]}>You're all caught up! New notifications will appear here.</Text>
           </View>
         ) : (
           Object.entries(groupedNotifications).map(([date, notifs]) => (
@@ -283,7 +285,7 @@ const NotificationsScreen = ({ navigation }) => {
                 return (
                   <TouchableOpacity 
                     key={notif._id} 
-                    style={[styles.notificationCard, !notif.read && styles.unreadCard]}
+                    style={[styles.notificationCard, { backgroundColor: colors.bgCard, borderColor: colors.border }, !notif.read && styles.unreadCard]}
                     onPress={() => markAsRead(notif._id)}
                     activeOpacity={0.7}
                   >
@@ -294,10 +296,10 @@ const NotificationsScreen = ({ navigation }) => {
                       </View>
                       <View style={styles.notifText}>
                         <View style={styles.notifHeader}>
-                          <Text style={styles.notifTitle}>{notif.title}</Text>
-                          <Text style={styles.notifTime}>{formatTime(notif.createdAt)}</Text>
+                          <Text style={[styles.notifTitle, { color: colors.textPrimary }]}>{notif.title}</Text>
+                          <Text style={[styles.notifTime, { color: colors.textMuted }]}>{formatTime(notif.createdAt)}</Text>
                         </View>
-                        <Text style={styles.notifMessage} numberOfLines={2}>{notif.message}</Text>
+                        <Text style={[styles.notifMessage, { color: colors.textMuted }]} numberOfLines={2}>{notif.message}</Text>
                       </View>
                     </View>
                     {!notif.read && <View style={styles.unreadIndicator} />}
@@ -315,8 +317,8 @@ const NotificationsScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000000' },
-  loadingContainer: { flex: 1, backgroundColor: '#000000', justifyContent: 'center', alignItems: 'center' },
+  container: { flex: 1 },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   
   header: { 
     flexDirection: 'row', 
@@ -327,9 +329,9 @@ const styles = StyleSheet.create({
     paddingBottom: 16 
   },
   backBtn: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
-  headerTitle: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
+  headerTitle: { fontSize: 18, fontWeight: 'bold' },
   markAllBtn: { paddingHorizontal: 8, paddingVertical: 4 },
-  markAllText: { color: '#d4af37', fontSize: 13, fontWeight: '500' },
+  markAllText: { color: '#2563eb', fontSize: 13, fontWeight: '500' },
   
   // Unread Banner
   unreadBanner: { 
@@ -357,12 +359,11 @@ const styles = StyleSheet.create({
     width: 80, 
     height: 80, 
     borderRadius: 40, 
-    backgroundColor: '#111', 
     justifyContent: 'center', 
     alignItems: 'center', 
     marginBottom: 16 
   },
-  emptyTitle: { color: '#fff', fontSize: 18, fontWeight: '600', marginBottom: 8 },
+  emptyTitle: { fontSize: 18, fontWeight: '600', marginBottom: 8 },
   emptyText: { color: '#666', fontSize: 14, textAlign: 'center', lineHeight: 20 },
   
   // Date Group
@@ -381,11 +382,9 @@ const styles = StyleSheet.create({
   notificationCard: { 
     marginHorizontal: 16, 
     marginBottom: 8, 
-    backgroundColor: '#111', 
     borderRadius: 16, 
     padding: 14,
     borderWidth: 1,
-    borderColor: '#222',
     position: 'relative',
     overflow: 'hidden'
   },
@@ -412,7 +411,7 @@ const styles = StyleSheet.create({
     alignItems: 'center', 
     marginBottom: 4 
   },
-  notifTitle: { color: '#fff', fontSize: 15, fontWeight: '600' },
+  notifTitle: { fontSize: 15, fontWeight: '600' },
   notifTime: { color: '#666', fontSize: 12 },
   notifMessage: { color: '#888', fontSize: 14, lineHeight: 19 },
   unreadIndicator: { 

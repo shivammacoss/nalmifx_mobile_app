@@ -1,46 +1,54 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import * as SecureStore from 'expo-secure-store';
 
-// Dark theme (Venta Black / Gold & Black)
+// Dark theme (Venta Black / Red with Multi-color accents)
+// Ventablack: #0a0a0a (not pure black #000000)
 const darkTheme = {
   name: 'Dark',
   isDark: true,
   colors: {
-    primary: '#d4af37',
-    primaryHover: '#c9a42e',
-    secondary: '#fbbf24',
-    accent: '#d4af37',
-    bgPrimary: '#000000',
-    bgSecondary: '#0a0a0a',
-    bgCard: '#121212',
-    bgHover: '#1a1a1a',
+    primary: '#dc2626',
+    primaryHover: '#b91c1c',
+    secondary: '#ef4444',
+    accent: '#dc2626',
+    bgPrimary: '#0a0a0a',
+    bgSecondary: '#101010',
+    bgCard: '#141414',
+    bgHover: '#1c1c1c',
     textPrimary: '#ffffff',
-    textSecondary: '#888888',
-    textMuted: '#666666',
-    border: '#1a1a1a',
+    textSecondary: '#b0b0b0',
+    textMuted: '#707070',
+    border: '#1e1e1e',
     borderLight: '#2a2a2a',
     success: '#22c55e',
-    error: '#ff4444',
-    warning: '#fbbf24',
-    info: '#3b82f6',
-    buyColor: '#3b82f6',
-    sellColor: '#ff4444',
+    error: '#ef4444',
+    warning: '#f59e0b',
+    info: '#06b6d4',
+    buyColor: '#22c55e',
+    sellColor: '#ef4444',
     profitColor: '#22c55e',
-    lossColor: '#ff4444',
-    tabBarBg: '#000000',
-    cardBg: '#121212',
+    lossColor: '#ef4444',
+    tabBarBg: '#0a0a0a',
+    cardBg: '#141414',
+    // Multi-color accents
+    purple: '#a855f7',
+    cyan: '#06b6d4',
+    orange: '#f97316',
+    pink: '#ec4899',
+    yellow: '#eab308',
+    lime: '#84cc16',
   }
 };
 
-// Light theme (Pearl White)
+// Light theme (Pearl White / Deep Blue)
 const lightTheme = {
   name: 'Light',
   isDark: false,
   colors: {
-    primary: '#d4af37',
-    primaryHover: '#c9a42e',
-    secondary: '#fbbf24',
-    accent: '#d4af37',
+    primary: '#1e40af',
+    primaryHover: '#1e3a8a',
+    secondary: '#3b82f6',
+    accent: '#2563eb',
     bgPrimary: '#f5f5f5',
     bgSecondary: '#ffffff',
     bgCard: '#ffffff',

@@ -231,7 +231,7 @@ const SignupScreen = ({ navigation }) => {
               disabled={sendingOtp}
             >
               {sendingOtp ? (
-                <ActivityIndicator color="#d4af37" size="small" />
+                <ActivityIndicator color="#2563eb" size="small" />
               ) : (
                 <Text style={styles.resendText}>Resend OTP</Text>
               )}
@@ -242,7 +242,7 @@ const SignupScreen = ({ navigation }) => {
               style={styles.backButton}
               onPress={() => setOtpStep(false)}
             >
-              <Ionicons name="arrow-back" size={20} color="#d4af37" />
+              <Ionicons name="arrow-back" size={20} color="#2563eb" />
               <Text style={styles.backButtonText}>Back to signup</Text>
             </TouchableOpacity>
           </>
@@ -372,7 +372,7 @@ const styles = StyleSheet.create({
   logo: {
     width: 60,
     height: 60,
-    backgroundColor: '#d4af37',
+    backgroundColor: '#2563eb',
     borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
@@ -407,7 +407,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   activeTab: {
-    backgroundColor: '#d4af37',
+    backgroundColor: '#2563eb',
   },
   tabText: {
     color: '#666',
@@ -453,7 +453,7 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   button: {
-    backgroundColor: '#d4af37',
+    backgroundColor: '#2563eb',
     borderRadius: 12,
     padding: 16,
     alignItems: 'center',
@@ -505,7 +505,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   termsLink: {
-    color: '#d4af37',
+    color: '#2563eb',
   },
   signinContainer: {
     flexDirection: 'row',
@@ -517,7 +517,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   signinLink: {
-    color: '#d4af37',
+    color: '#2563eb',
     fontSize: 15,
     fontWeight: '600',
   },
@@ -527,7 +527,7 @@ const styles = StyleSheet.create({
     padding: 12,
   },
   resendText: {
-    color: '#d4af37',
+    color: '#2563eb',
     fontSize: 15,
     fontWeight: '600',
   },
@@ -540,7 +540,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   backButtonText: {
-    color: '#d4af37',
+    color: '#2563eb',
     fontSize: 15,
     fontWeight: '500',
   },

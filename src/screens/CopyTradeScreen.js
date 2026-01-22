@@ -14,8 +14,10 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
 import { API_URL } from '../config';
+import { useTheme } from '../context/ThemeContext';
 
 const CopyTradeScreen = ({ navigation }) => {
+  const { colors, isDark } = useTheme();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -56,6 +58,8 @@ const CopyTradeScreen = ({ navigation }) => {
 
   useEffect(() => {
     if (user) {
+      // Set loading false early to show UI, then fetch data in background
+      setLoading(false);
       fetchAllData();
     }
   }, [user]);
@@ -89,7 +93,6 @@ const CopyTradeScreen = ({ navigation }) => {
     } catch (e) {
       console.error('Error fetching data:', e);
     }
-    setLoading(false);
     setRefreshing(false);
   };
 
@@ -346,8 +349,8 @@ const CopyTradeScreen = ({ navigation }) => {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#d4af37" />
+      <View style={[styles.loadingContainer, { backgroundColor: colors.bgPrimary }]}>
+        <ActivityIndicator size="large" color={colors.accent} />
       </View>
     );
   }
@@ -358,29 +361,29 @@ const CopyTradeScreen = ({ navigation }) => {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.bgPrimary }]}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: colors.bgPrimary }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={24} color="#fff" />
+          <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Copy Trading</Text>
+        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Copy Trading</Text>
         <View style={{ width: 40 }} />
       </View>
 
       <ScrollView
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#d4af37" />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
         showsVerticalScrollIndicator={false}
       >
         {/* Become a Master Banner */}
         {!myMasterProfile && (
           <TouchableOpacity style={styles.masterBanner} onPress={() => setShowMasterModal(true)}>
             <View style={styles.masterBannerIcon}>
-              <Ionicons name="trophy" size={24} color="#d4af37" />
+              <Ionicons name="trophy" size={24} color="#2563eb" />
             </View>
             <View style={styles.masterBannerText}>
-              <Text style={styles.masterBannerTitle}>Become a Master Trader</Text>
-              <Text style={styles.masterBannerSub}>Share your trades and earn commission</Text>
+              <Text style={[styles.masterBannerTitle, { color: colors.textPrimary }]}>Become a Master Trader</Text>
+              <Text style={[styles.masterBannerSub, { color: colors.textMuted }]}>Share your trades and earn commission</Text>
             </View>
             <View style={styles.applyBtn}>
               <Text style={styles.applyBtnText}>Apply</Text>
@@ -406,7 +409,7 @@ const CopyTradeScreen = ({ navigation }) => {
               } />
             </View>
             <View style={styles.masterBannerText}>
-              <Text style={styles.masterBannerTitle}>{myMasterProfile.displayName}</Text>
+              <Text style={[styles.masterBannerTitle, { color: colors.textPrimary }]}>{myMasterProfile.displayName}</Text>
               <Text style={styles.masterBannerSub}>
                 <Text style={
                   myMasterProfile.status === 'ACTIVE' ? styles.statusTextActive :
@@ -430,10 +433,10 @@ const CopyTradeScreen = ({ navigation }) => {
             {tabs.map(tab => (
               <TouchableOpacity
                 key={tab}
-                style={[styles.tab, activeTab === tab && styles.tabActive]}
+                style={[styles.tab, { backgroundColor: colors.bgSecondary }, activeTab === tab && styles.tabActive]}
                 onPress={() => setActiveTab(tab)}
               >
-                <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>
+                <Text style={[styles.tabText, { color: colors.textMuted }, activeTab === tab && styles.tabTextActive]}>
                   {tab === 'discover' ? 'Discover' :
                    tab === 'subscriptions' ? 'Subscriptions' :
                    tab === 'trades' ? 'Trades' : 'Followers'}
@@ -447,12 +450,12 @@ const CopyTradeScreen = ({ navigation }) => {
         {activeTab === 'discover' && (
           <View style={styles.listContainer}>
             {/* Search */}
-            <View style={styles.searchContainer}>
-              <Ionicons name="search" size={18} color="#666" />
+            <View style={[styles.searchContainer, { backgroundColor: colors.bgSecondary, borderColor: colors.border }]}>
+              <Ionicons name="search" size={18} color={colors.textMuted} />
               <TextInput
-                style={styles.searchInput}
+                style={[styles.searchInput, { color: colors.textPrimary }]}
                 placeholder="Search masters..."
-                placeholderTextColor="#666"
+                placeholderTextColor={colors.textMuted}
                 value={searchTerm}
                 onChangeText={setSearchTerm}
               />
@@ -460,21 +463,21 @@ const CopyTradeScreen = ({ navigation }) => {
 
             {filteredMasters.length === 0 ? (
               <View style={styles.emptyState}>
-                <Ionicons name="people-outline" size={64} color="#333" />
-                <Text style={styles.emptyTitle}>No Master Traders</Text>
-                <Text style={styles.emptyText}>No master traders available yet</Text>
+                <Ionicons name="people-outline" size={64} color={colors.textMuted} />
+                <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>No Master Traders</Text>
+                <Text style={[styles.emptyText, { color: colors.textMuted }]}>No master traders available yet</Text>
               </View>
             ) : (
               filteredMasters.map((master) => {
                 const following = isFollowingMaster(master._id);
                 return (
-                  <View key={master._id} style={styles.masterCard}>
+                  <View key={master._id} style={[styles.masterCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
                     <View style={styles.masterHeader}>
                       <View style={styles.masterAvatar}>
                         <Text style={styles.avatarText}>{master.displayName?.charAt(0)}</Text>
                       </View>
                       <View style={styles.masterInfo}>
-                        <Text style={styles.masterName}>{master.displayName}</Text>
+                        <Text style={[styles.masterName, { color: colors.textPrimary }]}>{master.displayName}</Text>
                         <Text style={styles.masterFollowers}>{master.stats?.activeFollowers || 0} followers</Text>
                       </View>
                       {following && (
@@ -505,7 +508,7 @@ const CopyTradeScreen = ({ navigation }) => {
                     
                     {following ? (
                       <TouchableOpacity style={styles.followingBtn} onPress={() => setActiveTab('subscriptions')}>
-                        <Ionicons name="checkmark-circle" size={18} color="#d4af37" />
+                        <Ionicons name="checkmark-circle" size={18} color="#2563eb" />
                         <Text style={styles.followingBtnText}>Following</Text>
                       </TouchableOpacity>
                     ) : (
@@ -907,22 +910,22 @@ const CopyTradeScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000000' },
-  loadingContainer: { flex: 1, backgroundColor: '#000000', justifyContent: 'center', alignItems: 'center' },
+  container: { flex: 1 },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 60, paddingBottom: 16 },
   backBtn: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
-  headerTitle: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
+  headerTitle: { fontSize: 18, fontWeight: 'bold' },
   
   // Master Banner
-  masterBanner: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 16, marginBottom: 12, padding: 16, backgroundColor: '#d4af3720', borderRadius: 16, borderWidth: 1, borderColor: '#d4af3750' },
+  masterBanner: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 16, marginBottom: 12, padding: 16, backgroundColor: '#2563eb20', borderRadius: 16, borderWidth: 1, borderColor: '#2563eb50' },
   masterStatusBanner: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 16, marginBottom: 12, padding: 16, borderRadius: 16, borderWidth: 1 },
-  masterBannerIcon: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#d4af3730', justifyContent: 'center', alignItems: 'center' },
+  masterBannerIcon: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#2563eb30', justifyContent: 'center', alignItems: 'center' },
   masterBannerText: { flex: 1, marginLeft: 12 },
-  masterBannerTitle: { color: '#fff', fontSize: 15, fontWeight: '600' },
+  masterBannerTitle: { fontSize: 15, fontWeight: '600' },
   masterBannerSub: { color: '#888', fontSize: 12, marginTop: 2 },
-  commissionText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
-  applyBtn: { backgroundColor: '#d4af37', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8 },
+  commissionText: { fontSize: 16, fontWeight: 'bold' },
+  applyBtn: { backgroundColor: '#2563eb', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8 },
   applyBtnText: { color: '#000', fontSize: 13, fontWeight: '600' },
   
   // Status Banners
@@ -940,52 +943,52 @@ const styles = StyleSheet.create({
   // Tabs
   tabsScroll: { maxHeight: 50, marginBottom: 8 },
   tabs: { flexDirection: 'row', paddingHorizontal: 16, gap: 8 },
-  tab: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10, backgroundColor: '#111' },
-  tabActive: { backgroundColor: '#d4af37' },
+  tab: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10 },
+  tabActive: { backgroundColor: '#2563eb' },
   tabText: { color: '#666', fontSize: 13, fontWeight: '500' },
   tabTextActive: { color: '#000' },
   
   listContainer: { padding: 16 },
   
   // Search
-  searchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#111', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, marginBottom: 16, borderWidth: 1, borderColor: '#222' },
-  searchInput: { flex: 1, marginLeft: 10, color: '#fff', fontSize: 14 },
+  searchContainer: { flexDirection: 'row', alignItems: 'center', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, marginBottom: 16, borderWidth: 1 },
+  searchInput: { flex: 1, marginLeft: 10, fontSize: 14 },
   
   // Empty State
   emptyState: { alignItems: 'center', paddingVertical: 60 },
-  emptyTitle: { color: '#fff', fontSize: 20, fontWeight: '600', marginTop: 16 },
+  emptyTitle: { fontSize: 20, fontWeight: '600', marginTop: 16 },
   emptyText: { color: '#666', fontSize: 14, marginTop: 8, textAlign: 'center' },
   discoverBtn: { marginTop: 16 },
-  discoverBtnText: { color: '#d4af37', fontSize: 14, fontWeight: '600' },
+  discoverBtnText: { color: '#2563eb', fontSize: 14, fontWeight: '600' },
   
   // Master Card
-  masterCard: { backgroundColor: '#111', borderRadius: 16, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: '#222' },
+  masterCard: { borderRadius: 16, padding: 16, marginBottom: 12, borderWidth: 1 },
   masterHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
-  masterAvatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#d4af3730', justifyContent: 'center', alignItems: 'center' },
-  avatarText: { color: '#d4af37', fontSize: 18, fontWeight: 'bold' },
+  masterAvatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#2563eb30', justifyContent: 'center', alignItems: 'center' },
+  avatarText: { color: '#2563eb', fontSize: 18, fontWeight: 'bold' },
   masterInfo: { flex: 1, marginLeft: 12 },
-  masterName: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  masterName: { fontSize: 16, fontWeight: '600' },
   masterFollowers: { color: '#666', fontSize: 12, marginTop: 2 },
   followingBadge: { backgroundColor: '#22c55e20', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
   followingBadgeText: { color: '#22c55e', fontSize: 11, fontWeight: '600' },
   
   // Stats Grid
   statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
-  statBox: { flex: 1, minWidth: '45%', backgroundColor: '#0a0a0a', borderRadius: 10, padding: 12 },
+  statBox: { flex: 1, minWidth: '45%', borderRadius: 10, padding: 12 },
   statBoxLabel: { color: '#666', fontSize: 11 },
-  statBoxValue: { color: '#fff', fontSize: 16, fontWeight: '600', marginTop: 4 },
+  statBoxValue: { fontSize: 16, fontWeight: '600', marginTop: 4 },
   
   // Follow Button
-  followBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#d4af37', paddingVertical: 12, borderRadius: 10 },
+  followBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#2563eb', paddingVertical: 12, borderRadius: 10 },
   followBtnText: { color: '#000', fontSize: 14, fontWeight: '600' },
   followingBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#22c55e20', paddingVertical: 12, borderRadius: 10, borderWidth: 1, borderColor: '#22c55e50' },
   followingBtnText: { color: '#22c55e', fontSize: 14, fontWeight: '600' },
   
   // Subscription Card
-  subscriptionCard: { backgroundColor: '#111', borderRadius: 16, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: '#222' },
+  subscriptionCard: { borderRadius: 16, padding: 16, marginBottom: 12, borderWidth: 1 },
   subHeader: { flexDirection: 'row', alignItems: 'center' },
   subInfo: { flex: 1, marginLeft: 12 },
-  subMasterName: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  subMasterName: { fontSize: 16, fontWeight: '600' },
   subCopyMode: { color: '#666', fontSize: 12, marginTop: 2 },
   statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
   statusBadgeText: { fontSize: 11, fontWeight: '600' },
@@ -997,10 +1000,10 @@ const styles = StyleSheet.create({
   statusBadgeTextStopped: { color: '#ef4444' },
   
   // Sub Stats Grid
-  subStatsGrid: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 16, paddingTop: 16, borderTopWidth: 1, borderColor: '#222', gap: 8 },
+  subStatsGrid: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 16, paddingTop: 16, borderTopWidth: 1, gap: 8 },
   subStatBox: { width: '30%', alignItems: 'center', marginBottom: 8 },
   subStatLabel: { color: '#666', fontSize: 10 },
-  subStatValue: { color: '#fff', fontSize: 13, fontWeight: '600', marginTop: 4 },
+  subStatValue: { fontSize: 13, fontWeight: '600', marginTop: 4 },
   
   // Sub Actions
   subActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 12 },
@@ -1009,54 +1012,54 @@ const styles = StyleSheet.create({
   unfollowBtn: { width: 36, height: 36, borderRadius: 10, backgroundColor: '#ef444420', justifyContent: 'center', alignItems: 'center' },
   
   // Trade Card
-  tradeCard: { backgroundColor: '#111', borderRadius: 16, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: '#222' },
+  tradeCard: { borderRadius: 16, padding: 16, marginBottom: 12, borderWidth: 1 },
   tradeHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 },
-  tradeSymbol: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  tradeSymbol: { fontSize: 16, fontWeight: '600' },
   tradeMaster: { color: '#666', fontSize: 12, marginTop: 2 },
   tradeSideBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
   tradeSideText: { fontSize: 12, fontWeight: '600' },
   tradeDetails: { flexDirection: 'row', gap: 8 },
   tradeDetailItem: { flex: 1, alignItems: 'center' },
   tradeDetailLabel: { color: '#666', fontSize: 10 },
-  tradeDetailValue: { color: '#fff', fontSize: 13, fontWeight: '500', marginTop: 4 },
+  tradeDetailValue: { fontSize: 13, fontWeight: '500', marginTop: 4 },
   tradeStatusBadge: { alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, marginTop: 12 },
   tradeStatusText: { fontSize: 11, fontWeight: '600' },
   
   // Follower Card
-  followerCard: { backgroundColor: '#111', borderRadius: 16, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: '#222' },
+  followerCard: { borderRadius: 16, padding: 16, marginBottom: 12, borderWidth: 1 },
   followerHeader: { flexDirection: 'row', alignItems: 'center' },
   followerInfo: { flex: 1, marginLeft: 12 },
-  followerName: { color: '#fff', fontSize: 15, fontWeight: '600' },
+  followerName: { fontSize: 15, fontWeight: '600' },
   followerEmail: { color: '#666', fontSize: 12, marginTop: 2 },
   followerCopyMode: { color: '#888', fontSize: 11, marginTop: 4 },
   
   // Modal
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'flex-end' },
-  modalContent: { backgroundColor: '#111', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: 40, maxHeight: '85%' },
+  modalContent: { borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: 40, maxHeight: '85%' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
-  modalTitle: { color: '#fff', fontSize: 20, fontWeight: 'bold' },
+  modalTitle: { fontSize: 20, fontWeight: 'bold' },
   
-  selectedMaster: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#0a0a0a', padding: 16, borderRadius: 12, marginBottom: 16, borderWidth: 1, borderColor: '#222' },
-  selectedMasterName: { color: '#fff', fontSize: 16, fontWeight: '600', marginLeft: 12 },
+  selectedMaster: { flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: 12, marginBottom: 16, borderWidth: 1 },
+  selectedMasterName: { fontSize: 16, fontWeight: '600', marginLeft: 12 },
   
   inputLabel: { color: '#888', fontSize: 12, marginBottom: 8, marginTop: 16 },
   accountsScroll: { marginBottom: 8 },
-  accountCard: { backgroundColor: '#0a0a0a', paddingHorizontal: 16, paddingVertical: 12, borderRadius: 12, marginRight: 8, minWidth: 120, borderWidth: 1, borderColor: '#222' },
-  accountCardActive: { backgroundColor: '#d4af37', borderColor: '#d4af37' },
-  accountNumber: { color: '#fff', fontSize: 14, fontWeight: '600' },
+  accountCard: { paddingHorizontal: 16, paddingVertical: 12, borderRadius: 12, marginRight: 8, minWidth: 120, borderWidth: 1 },
+  accountCardActive: { backgroundColor: '#2563eb', borderColor: '#2563eb' },
+  accountNumber: { fontSize: 14, fontWeight: '600' },
   accountBalance: { color: '#666', fontSize: 12, marginTop: 4 },
   
   // Copy Mode
   copyModeRow: { flexDirection: 'row', gap: 8 },
-  copyModeBtn: { flex: 1, paddingVertical: 12, borderRadius: 10, backgroundColor: '#0a0a0a', alignItems: 'center', borderWidth: 1, borderColor: '#222' },
-  copyModeBtnActive: { backgroundColor: '#d4af3720', borderColor: '#d4af37' },
+  copyModeBtn: { flex: 1, paddingVertical: 12, borderRadius: 10, alignItems: 'center', borderWidth: 1 },
+  copyModeBtnActive: { backgroundColor: '#2563eb20', borderColor: '#2563eb' },
   copyModeText: { color: '#666', fontSize: 13, fontWeight: '500' },
-  copyModeTextActive: { color: '#d4af37' },
+  copyModeTextActive: { color: '#2563eb' },
   
-  input: { backgroundColor: '#0a0a0a', borderRadius: 12, padding: 16, color: '#fff', fontSize: 16, borderWidth: 1, borderColor: '#222' },
+  input: { borderRadius: 12, padding: 16, fontSize: 16, borderWidth: 1 },
   inputHint: { color: '#666', fontSize: 12, marginTop: 8 },
   
-  submitBtn: { backgroundColor: '#d4af37', padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 24 },
+  submitBtn: { backgroundColor: '#2563eb', padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 24 },
   submitBtnDisabled: { opacity: 0.6 },
   submitBtnText: { color: '#000', fontSize: 16, fontWeight: 'bold' },
 });

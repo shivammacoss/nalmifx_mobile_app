@@ -12,9 +12,11 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { API_URL } from '../config';
+import { useTheme } from '../context/ThemeContext';
 
 const DashboardScreen = () => {
   const navigation = useNavigation();
+  const { colors } = useTheme();
   const [refreshing, setRefreshing] = useState(false);
   const [marketWatchNews, setMarketWatchNews] = useState([]);
   const [loadingNews, setLoadingNews] = useState(true);
@@ -119,39 +121,39 @@ const DashboardScreen = () => {
 
   const getImpactColor = (impact) => {
     switch (impact) {
-      case 'high': return '#d4af37';
-      case 'medium': return '#d4af37';
-      case 'low': return '#d4af37';
+      case 'high': return '#2563eb';
+      case 'medium': return '#2563eb';
+      case 'low': return '#2563eb';
       default: return '#666';
     }
   };
 
   const quickActions = [
-    { id: 'accounts', icon: 'wallet-outline', label: 'Accounts', screen: 'Accounts', color: '#d4af37' },
-    { id: 'wallet', icon: 'card-outline', label: 'Wallet', screen: 'Wallet', color: '#d4af37' },
-    { id: 'copy', icon: 'copy-outline', label: 'Copy Trade', screen: 'CopyTrading', color: '#d4af37' },
-    { id: 'ib', icon: 'people-outline', label: 'IB Program', screen: 'IB', color: '#d4af37' },
+    { id: 'accounts', icon: 'wallet-outline', label: 'Accounts', screen: 'Accounts', color: '#2563eb' },
+    { id: 'wallet', icon: 'card-outline', label: 'Wallet', screen: 'Wallet', color: '#2563eb' },
+    { id: 'copy', icon: 'copy-outline', label: 'Copy Trade', screen: 'CopyTrading', color: '#2563eb' },
+    { id: 'ib', icon: 'people-outline', label: 'IB Program', screen: 'IB', color: '#2563eb' },
   ];
 
   return (
     <ScrollView 
-      style={styles.container}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#d4af37" />}
+      style={[styles.container, { backgroundColor: colors.bgPrimary }]}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
     >
       {/* Quick Actions */}
       <View style={styles.quickActionsSection}>
-        <Text style={styles.sectionTitle}>Quick Actions</Text>
+        <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Quick Actions</Text>
         <View style={styles.quickActionsGrid}>
           {quickActions.map(action => (
             <TouchableOpacity 
               key={action.id} 
-              style={styles.quickActionCard}
+              style={[styles.quickActionCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
               onPress={() => navigation.navigate(action.screen)}
             >
               <View style={[styles.quickActionIcon, { backgroundColor: action.color + '20' }]}>
                 <Ionicons name={action.icon} size={24} color={action.color} />
               </View>
-              <Text style={styles.quickActionLabel}>{action.label}</Text>
+              <Text style={[styles.quickActionLabel, { color: colors.textPrimary }]}>{action.label}</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -161,8 +163,8 @@ const DashboardScreen = () => {
       <View style={styles.newsSection}>
         <View style={styles.newsSectionHeader}>
           <View style={styles.newsTitleRow}>
-            <Ionicons name="newspaper-outline" size={20} color="#d4af37" />
-            <Text style={styles.sectionTitle}>MarketWatch News</Text>
+            <Ionicons name="newspaper-outline" size={20} color={colors.accent} />
+            <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>MarketWatch News</Text>
           </View>
           <View style={styles.liveIndicator}>
             <View style={styles.liveDot} />
@@ -172,15 +174,15 @@ const DashboardScreen = () => {
         
         {loadingNews ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#d4af37" />
-            <Text style={styles.loadingText}>Loading latest news...</Text>
+            <ActivityIndicator size="large" color={colors.accent} />
+            <Text style={[styles.loadingText, { color: colors.textMuted }]}>Loading latest news...</Text>
           </View>
         ) : (
           <View style={styles.newsContent}>
             {marketWatchNews.map((item, index) => (
               <TouchableOpacity 
                 key={item.id || index} 
-                style={styles.newsItem}
+                style={[styles.newsItem, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
                 onPress={() => openNewsUrl(item.url)}
                 activeOpacity={0.7}
               >
@@ -188,15 +190,15 @@ const DashboardScreen = () => {
                   <View style={styles.newsCategory}>
                     <Text style={styles.newsCategoryText}>{item.category || 'Markets'}</Text>
                   </View>
-                  <Text style={styles.newsTime}>{item.time}</Text>
+                  <Text style={[styles.newsTime, { color: colors.textMuted }]}>{item.time}</Text>
                 </View>
-                <Text style={styles.newsTitle} numberOfLines={3}>{item.title}</Text>
+                <Text style={[styles.newsTitle, { color: colors.textPrimary }]} numberOfLines={3}>{item.title}</Text>
                 <View style={styles.newsMeta}>
                   <View style={styles.sourceRow}>
-                    <Ionicons name="globe-outline" size={12} color="#888" />
-                    <Text style={styles.newsSource}>{item.source || 'MarketWatch'}</Text>
+                    <Ionicons name="globe-outline" size={12} color={colors.textMuted} />
+                    <Text style={[styles.newsSource, { color: colors.textMuted }]}>{item.source || 'MarketWatch'}</Text>
                   </View>
-                  <Ionicons name="chevron-forward" size={16} color="#666" />
+                  <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
                 </View>
               </TouchableOpacity>
             ))}
@@ -212,7 +214,6 @@ const DashboardScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000000',
     paddingTop: 50,
   },
   sectionTitle: {
@@ -236,12 +237,10 @@ const styles = StyleSheet.create({
   },
   quickActionCard: {
     width: '47%',
-    backgroundColor: '#000000',
     borderRadius: 16,
     padding: 20,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#000000',
   },
   quickActionIcon: {
     width: 56,
@@ -324,13 +323,13 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   newsCategory: {
-    backgroundColor: '#d4af3720',
+    backgroundColor: '#2563eb20',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 6,
   },
   newsCategoryText: {
-    color: '#d4af37',
+    color: '#2563eb',
     fontSize: 11,
     fontWeight: '600',
   },
