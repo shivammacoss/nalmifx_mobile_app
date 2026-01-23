@@ -103,8 +103,10 @@ const CopyTradeScreen = ({ navigation }) => {
 
   const fetchMasters = async () => {
     try {
+      console.log('CopyTradeScreen - Fetching masters from:', `${API_URL}/copy/masters`);
       const res = await fetch(`${API_URL}/copy/masters`);
       const data = await res.json();
+      console.log('CopyTradeScreen - Masters response:', data.masters?.length || 0, 'masters');
       setMasters(data.masters || []);
     } catch (e) {
       console.error('Error fetching masters:', e);

@@ -57,8 +57,8 @@ const AccountsScreen = ({ navigation, route }) => {
     if (user) {
       // Set loading false early to show UI, then fetch data in background
       setLoading(false);
-      // Fetch accounts, challenge accounts, and wallet balance in parallel for faster loading
-      Promise.all([fetchAccounts(), fetchChallengeAccounts(), fetchWalletBalance()]);
+      // Fetch accounts, challenge accounts, wallet balance, and challenge status in parallel
+      Promise.all([fetchAccounts(), fetchChallengeAccounts(), fetchWalletBalance(), fetchChallengeStatus()]);
     }
   }, [user]);
   
@@ -125,13 +125,30 @@ const AccountsScreen = ({ navigation, route }) => {
     }
   };
 
+  // Fetch challenge status separately (like web version)
+  const fetchChallengeStatus = async () => {
+    try {
+      const res = await fetch(`${API_URL}/prop/status`);
+      const data = await res.json();
+      console.log('AccountsScreen - Challenge status:', data.enabled);
+      if (data.success) {
+        setChallengeModeEnabled(data.enabled);
+      }
+    } catch (e) {
+      console.error('Error fetching challenge status:', e);
+    }
+  };
+
   const fetchAvailableChallenges = async () => {
     try {
       const res = await fetch(`${API_URL}/prop/challenges`);
       const data = await res.json();
       console.log('AccountsScreen - Fetched available challenges:', data.challenges?.length, 'enabled:', data.enabled);
       setAvailableChallenges(data.challenges || []);
-      setChallengeModeEnabled(data.enabled || false);
+      // Also update challenge mode from this endpoint as backup
+      if (data.enabled !== undefined) {
+        setChallengeModeEnabled(data.enabled);
+      }
     } catch (e) {
       console.error('Error fetching available challenges:', e);
     }
@@ -187,8 +204,14 @@ const AccountsScreen = ({ navigation, route }) => {
   const fetchAccounts = async () => {
     if (!user) return;
     try {
+      console.log('AccountsScreen - Fetching accounts for user:', user._id);
       const res = await fetch(`${API_URL}/trading-accounts/user/${user._id}`);
       const data = await res.json();
+      console.log('AccountsScreen - Accounts response:', data.accounts?.length || 0, 'accounts');
+      // Debug: Log account details
+      data.accounts?.forEach(acc => {
+        console.log(`  Account ${acc.accountId}: isDemo=${acc.isDemo}, typeIsDemo=${acc.accountTypeId?.isDemo}, status=${acc.status}`);
+      });
       setAccounts(data.accounts || []);
     } catch (e) {
       console.error('Error fetching accounts:', e);
@@ -197,7 +220,7 @@ const AccountsScreen = ({ navigation, route }) => {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await fetchAccounts();
+    await Promise.all([fetchAccounts(), fetchChallengeAccounts(), fetchWalletBalance(), fetchChallengeStatus()]);
     setRefreshing(false);
   };
 
@@ -451,10 +474,10 @@ const AccountsScreen = ({ navigation, route }) => {
     }
   };
 
-  // Filter accounts based on active tab
-  const liveAccounts = accounts.filter(a => !a.accountTypeId?.isDemo && a.status === 'Active');
-  const demoAccounts = accounts.filter(a => a.accountTypeId?.isDemo && a.status === 'Active');
-  const archivedAccounts = accounts.filter(a => a.status !== 'Active');
+  // Filter accounts based on active tab (matching web version logic)
+  const liveAccounts = accounts.filter(a => !a.accountTypeId?.isDemo && !a.isDemo && a.status === 'Active');
+  const demoAccounts = accounts.filter(a => (a.accountTypeId?.isDemo || a.isDemo) && a.status === 'Active');
+  const archivedAccounts = accounts.filter(a => a.status === 'Archived' || a.status !== 'Active');
   const activeChallengeAccounts = challengeAccounts.filter(a => a.status !== 'FAILED' && a.status !== 'ARCHIVED');
 
   const getTabAccounts = () => {
@@ -620,9 +643,9 @@ const AccountsScreen = ({ navigation, route }) => {
           </>
         ) : getTabAccounts().length === 0 ? (
           <View style={styles.emptyState}>
-            <Ionicons name="wallet-outline" size={64} color="#666" />
-            <Text style={styles.emptyTitle}>No {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Accounts</Text>
-            <Text style={styles.emptyText}>You don't have any {activeTab} accounts yet.</Text>
+            <Ionicons name="wallet-outline" size={64} color={colors.textMuted} />
+            <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>No {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Accounts</Text>
+            <Text style={[styles.emptyText, { color: colors.textMuted }]}>You don't have any {activeTab} accounts yet.</Text>
           </View>
         ) : (
           getTabAccounts().map((account) => {
