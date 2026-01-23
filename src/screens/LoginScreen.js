@@ -228,7 +228,7 @@ const styles = StyleSheet.create({
   logo: {
     width: 60,
     height: 60,
-    backgroundColor: '#2563eb',
+    backgroundColor: '#dc2626',
     borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
@@ -263,7 +263,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   activeTab: {
-    backgroundColor: '#2563eb',
+    backgroundColor: '#dc2626',
   },
   tabText: {
     color: '#666',
@@ -313,12 +313,12 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   forgotText: {
-    color: '#2563eb',
+    color: '#dc2626',
     fontSize: 14,
     fontWeight: '500',
   },
   button: {
-    backgroundColor: '#2563eb',
+    backgroundColor: '#dc2626',
     borderRadius: 12,
     padding: 16,
     alignItems: 'center',
@@ -371,7 +371,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   signupLink: {
-    color: '#2563eb',
+    color: '#dc2626',
     fontSize: 15,
     fontWeight: '600',
   },

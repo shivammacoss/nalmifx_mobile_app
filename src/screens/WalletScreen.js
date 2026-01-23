@@ -112,6 +112,10 @@ const WalletScreen = ({ navigation }) => {
       Alert.alert('Error', 'Please select a payment method');
       return;
     }
+    if (!transactionRef || transactionRef.trim() === '') {
+      Alert.alert('Error', 'Please enter the transaction ID/reference number');
+      return;
+    }
 
     // Calculate USD amount from local currency
     const usdAmount = selectedCurrency && selectedCurrency.currency !== 'USD'
@@ -388,32 +392,32 @@ const WalletScreen = ({ navigation }) => {
                 {selectedMethod.type === 'Bank Transfer' && (
                   <>
                     <Text style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Bank: </Text>
-                      <Text style={styles.detailValue}>{selectedMethod.bankName}</Text>
+                      <Text style={[styles.detailLabel, { color: colors.textMuted }]}>Bank: </Text>
+                      <Text style={[styles.detailValue, { color: colors.textPrimary }]}>{selectedMethod.bankName}</Text>
                     </Text>
                     <Text style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Account: </Text>
-                      <Text style={styles.detailValue}>{selectedMethod.accountNumber}</Text>
+                      <Text style={[styles.detailLabel, { color: colors.textMuted }]}>Account: </Text>
+                      <Text style={[styles.detailValue, { color: colors.textPrimary }]}>{selectedMethod.accountNumber}</Text>
                     </Text>
                     <Text style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Name: </Text>
-                      <Text style={styles.detailValue}>{selectedMethod.accountHolderName}</Text>
+                      <Text style={[styles.detailLabel, { color: colors.textMuted }]}>Name: </Text>
+                      <Text style={[styles.detailValue, { color: colors.textPrimary }]}>{selectedMethod.accountHolderName}</Text>
                     </Text>
                     <Text style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>IFSC: </Text>
-                      <Text style={styles.detailValue}>{selectedMethod.ifscCode}</Text>
+                      <Text style={[styles.detailLabel, { color: colors.textMuted }]}>IFSC: </Text>
+                      <Text style={[styles.detailValue, { color: colors.textPrimary }]}>{selectedMethod.ifscCode}</Text>
                     </Text>
                   </>
                 )}
                 {selectedMethod.type === 'UPI' && (
                   <Text style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>UPI ID: </Text>
-                    <Text style={styles.detailValue}>{selectedMethod.upiId}</Text>
+                    <Text style={[styles.detailLabel, { color: colors.textMuted }]}>UPI ID: </Text>
+                    <Text style={[styles.detailValue, { color: colors.textPrimary }]}>{selectedMethod.upiId}</Text>
                   </Text>
                 )}
                 {selectedMethod.type === 'QR Code' && selectedMethod.qrCodeImage && (
                   <View style={styles.qrContainer}>
-                    <Text style={styles.detailLabel}>Scan QR Code to Pay:</Text>
+                    <Text style={[styles.detailLabel, { color: colors.textMuted }]}>Scan QR Code to Pay:</Text>
                     <Image 
                       source={{ uri: selectedMethod.qrCodeImage }} 
                       style={styles.qrImage}
@@ -424,7 +428,7 @@ const WalletScreen = ({ navigation }) => {
               </View>
             )}
 
-            <Text style={[styles.inputLabel, { color: colors.textMuted }]}>Transaction Reference (Optional)</Text>
+            <Text style={[styles.inputLabel, { color: colors.textMuted }]}>Transaction ID / Reference Number *</Text>
             <TextInput
               style={[styles.input, { backgroundColor: colors.bgSecondary, borderColor: colors.border, color: colors.textPrimary }]}
               value={transactionRef}
@@ -529,10 +533,10 @@ const styles = StyleSheet.create({
   balanceAmount: { fontSize: 36, fontWeight: 'bold', marginTop: 8 },
   
   actionButtons: { flexDirection: 'row', gap: 12, marginTop: 24 },
-  depositBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#2563eb', paddingVertical: 14, borderRadius: 12 },
+  depositBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#dc2626', paddingVertical: 14, borderRadius: 12 },
   depositBtnText: { color: '#000', fontSize: 16, fontWeight: '600' },
   withdrawBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 1, paddingVertical: 14, borderRadius: 12 },
-  withdrawBtnText: { color: '#2563eb', fontSize: 16, fontWeight: '600' },
+  withdrawBtnText: { color: '#dc2626', fontSize: 16, fontWeight: '600' },
   
   transactionsSection: { padding: 16 },
   sectionTitle: { fontSize: 18, fontWeight: '600', marginBottom: 16 },
@@ -560,28 +564,28 @@ const styles = StyleSheet.create({
   
   methodsScroll: { marginTop: 8 },
   methodCard: { paddingHorizontal: 20, paddingVertical: 12, borderRadius: 12, marginRight: 8, borderWidth: 1 },
-  methodCardActive: { backgroundColor: '#2563eb', borderColor: '#2563eb' },
+  methodCardActive: { backgroundColor: '#dc2626', borderColor: '#dc2626' },
   methodName: { fontSize: 14, fontWeight: '500' },
   
   availableBalance: { padding: 16, borderRadius: 12, marginBottom: 8, borderWidth: 1 },
   availableLabel: { color: '#666', fontSize: 12 },
-  availableAmount: { color: '#2563eb', fontSize: 24, fontWeight: 'bold', marginTop: 4 },
+  availableAmount: { color: '#dc2626', fontSize: 24, fontWeight: 'bold', marginTop: 4 },
   
-  submitBtn: { backgroundColor: '#2563eb', padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 24 },
-  withdrawSubmitBtn: { backgroundColor: '#2563eb' },
+  submitBtn: { backgroundColor: '#dc2626', padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 24 },
+  withdrawSubmitBtn: { backgroundColor: '#dc2626' },
   submitBtnDisabled: { opacity: 0.6 },
   submitBtnText: { color: '#000', fontSize: 16, fontWeight: 'bold' },
   
   // Currency selection styles
   currencyCard: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12, marginRight: 8, alignItems: 'center', minWidth: 60, borderWidth: 1 },
-  currencyCardActive: { backgroundColor: '#2563eb' },
+  currencyCardActive: { backgroundColor: '#dc2626' },
   currencySymbol: { fontSize: 18, fontWeight: 'bold' },
   currencyName: { color: '#666', fontSize: 10, marginTop: 2 },
   
   // Conversion box styles
-  conversionBox: { backgroundColor: '#2563eb20', borderWidth: 1, borderColor: '#2563eb50', borderRadius: 12, padding: 16, marginTop: 12, alignItems: 'center' },
+  conversionBox: { backgroundColor: '#dc262620', borderWidth: 1, borderColor: '#dc262650', borderRadius: 12, padding: 16, marginTop: 12, alignItems: 'center' },
   conversionLabel: { color: '#666', fontSize: 12 },
-  conversionAmount: { color: '#2563eb', fontSize: 24, fontWeight: 'bold', marginTop: 4 },
+  conversionAmount: { color: '#dc2626', fontSize: 24, fontWeight: 'bold', marginTop: 4 },
   conversionRate: { color: '#666', fontSize: 11, marginTop: 8 },
   
   // Method details styles
