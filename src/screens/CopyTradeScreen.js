@@ -34,6 +34,7 @@ const CopyTradeScreen = ({ navigation }) => {
   const [copyValue, setCopyValue] = useState('0.01');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [loadingMasters, setLoadingMasters] = useState(false);
   
   // Master trader states
   const [myMasterProfile, setMyMasterProfile] = useState(null);
@@ -102,15 +103,20 @@ const CopyTradeScreen = ({ navigation }) => {
   };
 
   const fetchMasters = async () => {
+    setLoadingMasters(true);
     try {
       console.log('CopyTradeScreen - Fetching masters from:', `${API_URL}/copy/masters`);
       const res = await fetch(`${API_URL}/copy/masters`);
       const data = await res.json();
-      console.log('CopyTradeScreen - Masters response:', data.masters?.length || 0, 'masters');
-      setMasters(data.masters || []);
+      console.log('CopyTradeScreen - Masters response:', JSON.stringify(data));
+      // Handle both array response and object with masters property
+      const mastersList = Array.isArray(data) ? data : (data.masters || []);
+      console.log('CopyTradeScreen - Setting masters:', mastersList.length);
+      setMasters(mastersList);
     } catch (e) {
-      console.error('Error fetching masters:', e);
+      console.warn('Error fetching masters:', e.message);
     }
+    setLoadingMasters(false);
   };
 
   const fetchMySubscriptions = async () => {
@@ -463,11 +469,19 @@ const CopyTradeScreen = ({ navigation }) => {
               />
             </View>
 
-            {filteredMasters.length === 0 ? (
+            {loadingMasters ? (
+              <View style={styles.emptyState}>
+                <ActivityIndicator size="large" color={colors.accent} />
+                <Text style={[styles.emptyText, { color: colors.textMuted, marginTop: 16 }]}>Loading master traders...</Text>
+              </View>
+            ) : filteredMasters.length === 0 ? (
               <View style={styles.emptyState}>
                 <Ionicons name="people-outline" size={64} color={colors.textMuted} />
                 <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>No Master Traders</Text>
                 <Text style={[styles.emptyText, { color: colors.textMuted }]}>No master traders available yet</Text>
+                <TouchableOpacity onPress={fetchMasters} style={{ marginTop: 16 }}>
+                  <Text style={{ color: colors.accent }}>Tap to refresh</Text>
+                </TouchableOpacity>
               </View>
             ) : (
               filteredMasters.map((master) => {
