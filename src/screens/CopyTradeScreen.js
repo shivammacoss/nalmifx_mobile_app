@@ -55,13 +55,19 @@ const CopyTradeScreen = ({ navigation }) => {
 
   useEffect(() => {
     loadUser();
+    // Fetch masters immediately - doesn't require user auth
+    fetchMasters();
   }, []);
 
   useEffect(() => {
     if (user) {
       // Set loading false early to show UI, then fetch data in background
       setLoading(false);
-      fetchAllData();
+      // Fetch user-specific data
+      fetchMySubscriptions();
+      fetchMyCopyTrades();
+      fetchAccounts();
+      fetchMyMasterProfile();
     }
   }, [user]);
 
