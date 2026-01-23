@@ -202,7 +202,7 @@ const ProfileScreen = ({ navigation }) => {
           
           <TouchableOpacity style={[styles.actionItem, { backgroundColor: colors.bgCard }]} onPress={() => setShowEditModal(true)}>
             <View style={styles.actionLeft}>
-              <View style={[styles.actionIcon, { backgroundColor: '#2563eb20' }]}>
+              <View style={[styles.actionIcon, { backgroundColor: '#dc262620' }]}>
                 <Ionicons name="create-outline" size={20} color={colors.accent} />
               </View>
               <Text style={[styles.actionText, { color: colors.textPrimary }]}>Edit Profile</Text>
@@ -212,7 +212,7 @@ const ProfileScreen = ({ navigation }) => {
           
           <TouchableOpacity style={[styles.actionItem, { backgroundColor: colors.bgCard }]} onPress={() => setShowPasswordModal(true)}>
             <View style={styles.actionLeft}>
-              <View style={[styles.actionIcon, { backgroundColor: '#2563eb20' }]}>
+              <View style={[styles.actionIcon, { backgroundColor: '#dc262620' }]}>
                 <Ionicons name="lock-closed-outline" size={20} color={colors.accent} />
               </View>
               <Text style={[styles.actionText, { color: colors.textPrimary }]}>Change Password</Text>
@@ -344,7 +344,7 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 18, fontWeight: 'bold' },
   
   profileCard: { alignItems: 'center', padding: 30, margin: 16, borderRadius: 20 },
-  avatar: { width: 80, height: 80, borderRadius: 40, backgroundColor: '#2563eb', justifyContent: 'center', alignItems: 'center' },
+  avatar: { width: 80, height: 80, borderRadius: 40, backgroundColor: '#dc2626', justifyContent: 'center', alignItems: 'center' },
   avatarText: { color: '#000', fontSize: 28, fontWeight: 'bold' },
   userName: { fontSize: 22, fontWeight: 'bold', marginTop: 16 },
   userEmail: { color: '#666', fontSize: 14, marginTop: 4 },
@@ -370,7 +370,7 @@ const styles = StyleSheet.create({
   inputLabel: { fontSize: 12, marginBottom: 8, marginTop: 16 },
   input: { borderRadius: 12, padding: 16, fontSize: 16 },
   
-  submitBtn: { backgroundColor: '#2563eb', padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 24 },
+  submitBtn: { backgroundColor: '#dc2626', padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 24 },
   submitBtnDisabled: { opacity: 0.6 },
   submitBtnText: { color: '#000', fontSize: 16, fontWeight: 'bold' },
 });

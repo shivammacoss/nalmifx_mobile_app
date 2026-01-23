@@ -854,7 +854,7 @@ const HomeTab = ({ navigation }) => {
   if (ctx.loading) {
     return (
       <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#2563eb" />
+        <ActivityIndicator size="large" color="#dc2626" />
       </View>
     );
   }
@@ -876,7 +876,7 @@ const HomeTab = ({ navigation }) => {
       {ctx.isChallengeMode && ctx.selectedChallengeAccount && (
         <View style={[styles.accountCard, { 
           backgroundColor: colors.bgCard, 
-          borderColor: ctx.selectedChallengeAccount.status === 'FAILED' ? '#ef4444' : '#2563eb', 
+          borderColor: ctx.selectedChallengeAccount.status === 'FAILED' ? '#ef4444' : '#dc2626', 
           borderWidth: 2 
         }]}>
           <TouchableOpacity 
@@ -888,12 +888,12 @@ const HomeTab = ({ navigation }) => {
             }}
           >
             <View style={[styles.accountIconContainer, { 
-              backgroundColor: ctx.selectedChallengeAccount.status === 'FAILED' ? '#ef444440' : '#2563eb40' 
+              backgroundColor: ctx.selectedChallengeAccount.status === 'FAILED' ? '#ef444440' : '#dc262640' 
             }]}>
               <Ionicons 
                 name={ctx.selectedChallengeAccount.status === 'FAILED' ? 'close-circle-outline' : 'trophy-outline'} 
                 size={20} 
-                color={ctx.selectedChallengeAccount.status === 'FAILED' ? '#ef4444' : '#2563eb'} 
+                color={ctx.selectedChallengeAccount.status === 'FAILED' ? '#ef4444' : '#dc2626'} 
               />
             </View>
             <View style={styles.accountInfo}>
@@ -960,7 +960,7 @@ const HomeTab = ({ navigation }) => {
             {ctx.selectedChallengeAccount.status === 'FAILED' ? (
               <>
                 <TouchableOpacity 
-                  style={[styles.depositBtn, { flex: 1, backgroundColor: '#2563eb' }]}
+                  style={[styles.depositBtn, { flex: 1, backgroundColor: '#dc2626' }]}
                   onPress={() => {
                     ctx.setIsChallengeMode(false);
                     ctx.setSelectedChallengeAccount(null);
@@ -979,7 +979,7 @@ const HomeTab = ({ navigation }) => {
                     SecureStore.deleteItemAsync('selectedChallengeAccountId');
                   }}
                 >
-                  <Ionicons name="swap-horizontal-outline" size={16} color="#2563eb" />
+                  <Ionicons name="swap-horizontal-outline" size={16} color="#dc2626" />
                   <Text style={styles.withdrawBtnText}>Regular Account</Text>
                 </TouchableOpacity>
               </>
@@ -1948,7 +1948,7 @@ const QuotesTab = ({ navigation }) => {
                     placeholder="Optional"
                     placeholderTextColor={colors.textMuted}
                     keyboardType="decimal-pad"
-                    selectionColor="#2563eb"
+                    selectionColor="#dc2626"
                     onFocus={() => {
                       setTimeout(() => {
                         orderScrollRef.current?.scrollToEnd({ animated: true });
@@ -1965,7 +1965,7 @@ const QuotesTab = ({ navigation }) => {
                     placeholder="Optional"
                     placeholderTextColor={colors.textMuted}
                     keyboardType="decimal-pad"
-                    selectionColor="#2563eb"
+                    selectionColor="#dc2626"
                     onFocus={() => {
                       setTimeout(() => {
                         orderScrollRef.current?.scrollToEnd({ animated: true });
@@ -2386,8 +2386,8 @@ const TradeTab = () => {
                       <View style={styles.positionInfo}>
                         <View style={styles.positionSymbolRow}>
                           <Text style={[styles.positionSymbol, { color: colors.textPrimary }]}>{trade.symbol}</Text>
-                          <View style={[styles.sideBadge, { backgroundColor: trade.side === 'BUY' ? '#2563eb20' : '#ef444420' }]}>
-                            <Text style={[styles.sideText, { color: trade.side === 'BUY' ? '#2563eb' : '#ef4444' }]}>{trade.side}</Text>
+                          <View style={[styles.sideBadge, { backgroundColor: trade.side === 'BUY' ? '#dc262620' : '#ef444420' }]}>
+                            <Text style={[styles.sideText, { color: trade.side === 'BUY' ? '#dc2626' : '#ef4444' }]}>{trade.side}</Text>
                           </View>
                         </View>
                         <Text style={[styles.positionDetail, { color: colors.textMuted }]}>{trade.quantity} lots @ {trade.openPrice?.toFixed(5)}</Text>
@@ -2470,7 +2470,7 @@ const TradeTab = () => {
                 <View style={styles.historyHeader}>
                   <View style={styles.historyLeft}>
                     <Text style={[styles.historySymbol, { color: colors.textPrimary }]}>{trade.symbol}</Text>
-                    <Text style={[styles.historySide, { color: trade.side === 'BUY' ? '#2563eb' : '#ef4444' }]}>{trade.side}</Text>
+                    <Text style={[styles.historySide, { color: trade.side === 'BUY' ? '#dc2626' : '#ef4444' }]}>{trade.side}</Text>
                     {trade.closedBy === 'ADMIN' && (
                       <View style={styles.adminBadge}>
                         <Text style={styles.adminBadgeText}>Admin Close</Text>
@@ -2525,7 +2525,7 @@ const TradeTab = () => {
                 returnKeyType="next"
                 autoCorrect={false}
                 autoCapitalize="none"
-                selectionColor="#2563eb"
+                selectionColor="#dc2626"
                 editable={true}
               />
             </View>
@@ -2542,7 +2542,7 @@ const TradeTab = () => {
                 returnKeyType="done"
                 autoCorrect={false}
                 autoCapitalize="none"
-                selectionColor="#2563eb"
+                selectionColor="#dc2626"
                 editable={true}
                 onSubmitEditing={updateSlTp}
               />
@@ -2596,11 +2596,11 @@ const TradeTab = () => {
                   </View>
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>Status</Text>
-                    <Text style={[styles.detailValue, { color: '#2563eb' }]}>{detailTrade.status}</Text>
+                    <Text style={[styles.detailValue, { color: '#dc2626' }]}>{detailTrade.status}</Text>
                   </View>
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>Side</Text>
-                    <Text style={[styles.detailValue, { color: detailTrade.side === 'BUY' ? '#2563eb' : '#2563eb' }]}>{detailTrade.side}</Text>
+                    <Text style={[styles.detailValue, { color: detailTrade.side === 'BUY' ? '#dc2626' : '#dc2626' }]}>{detailTrade.side}</Text>
                   </View>
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>Order Type</Text>
@@ -2640,13 +2640,13 @@ const TradeTab = () => {
                   <Text style={styles.detailSectionTitle}>Stop Loss / Take Profit</Text>
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>Stop Loss</Text>
-                    <Text style={[styles.detailValue, { color: detailTrade.stopLoss ? '#2563eb' : '#666' }]}>
+                    <Text style={[styles.detailValue, { color: detailTrade.stopLoss ? '#dc2626' : '#666' }]}>
                       {detailTrade.stopLoss || 'Not Set'}
                     </Text>
                   </View>
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>Take Profit</Text>
-                    <Text style={[styles.detailValue, { color: detailTrade.takeProfit ? '#2563eb' : '#666' }]}>
+                    <Text style={[styles.detailValue, { color: detailTrade.takeProfit ? '#dc2626' : '#666' }]}>
                       {detailTrade.takeProfit || 'Not Set'}
                     </Text>
                   </View>
@@ -2699,7 +2699,7 @@ const TradeTab = () => {
                     style={styles.detailEditBtn} 
                     onPress={() => { setShowTradeDetails(false); openSlTpModal(detailTrade); }}
                   >
-                    <Ionicons name="pencil" size={18} color="#2563eb" />
+                    <Ionicons name="pencil" size={18} color="#dc2626" />
                     <Text style={styles.detailEditText}>Edit SL/TP</Text>
                   </TouchableOpacity>
                   <TouchableOpacity 
@@ -2720,8 +2720,8 @@ const TradeTab = () => {
       <Modal visible={showCloseAllModal} animationType="fade" transparent onRequestClose={() => setShowCloseAllModal(false)}>
         <View style={styles.confirmModalOverlay}>
           <View style={styles.confirmModalContent}>
-            <View style={[styles.confirmModalIcon, { backgroundColor: closeAllType === 'profit' ? '#2563eb20' : closeAllType === 'loss' ? '#2563eb20' : '#2563eb20' }]}>
-              <Ionicons name={closeAllType === 'profit' ? 'trending-up' : closeAllType === 'loss' ? 'trending-down' : 'close-circle'} size={32} color={closeAllType === 'profit' ? '#2563eb' : closeAllType === 'loss' ? '#2563eb' : '#2563eb'} />
+            <View style={[styles.confirmModalIcon, { backgroundColor: closeAllType === 'profit' ? '#dc262620' : closeAllType === 'loss' ? '#dc262620' : '#dc262620' }]}>
+              <Ionicons name={closeAllType === 'profit' ? 'trending-up' : closeAllType === 'loss' ? 'trending-down' : 'close-circle'} size={32} color={closeAllType === 'profit' ? '#dc2626' : closeAllType === 'loss' ? '#dc2626' : '#dc2626'} />
             </View>
             <Text style={styles.confirmModalTitle}>
               {closeAllType === 'all' && 'Close All Trades?'}
@@ -2738,7 +2738,7 @@ const TradeTab = () => {
                 <Text style={styles.confirmCancelText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity 
-                style={[styles.confirmCloseBtn, { backgroundColor: closeAllType === 'profit' ? '#2563eb' : closeAllType === 'loss' ? '#2563eb' : '#2563eb' }, isClosingAll && styles.btnDisabled]} 
+                style={[styles.confirmCloseBtn, { backgroundColor: closeAllType === 'profit' ? '#dc2626' : closeAllType === 'loss' ? '#dc2626' : '#dc2626' }, isClosingAll && styles.btnDisabled]} 
                 onPress={confirmCloseAll}
                 disabled={isClosingAll}
               >
@@ -2777,7 +2777,7 @@ const TradeTab = () => {
                   </View>
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>Side</Text>
-                    <Text style={[styles.detailValue, { color: historyDetailTrade.side === 'BUY' ? '#2563eb' : '#2563eb' }]}>{historyDetailTrade.side}</Text>
+                    <Text style={[styles.detailValue, { color: historyDetailTrade.side === 'BUY' ? '#dc2626' : '#dc2626' }]}>{historyDetailTrade.side}</Text>
                   </View>
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>Order Type</Text>
@@ -2786,7 +2786,7 @@ const TradeTab = () => {
                   {historyDetailTrade.closedBy === 'ADMIN' && (
                     <View style={styles.detailRow}>
                       <Text style={styles.detailLabel}>Closed By</Text>
-                      <Text style={[styles.detailValue, { color: '#2563eb' }]}>Admin</Text>
+                      <Text style={[styles.detailValue, { color: '#dc2626' }]}>Admin</Text>
                     </View>
                   )}
                 </View>
@@ -2821,13 +2821,13 @@ const TradeTab = () => {
                   <Text style={styles.detailSectionTitle}>Stop Loss / Take Profit</Text>
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>Stop Loss</Text>
-                    <Text style={[styles.detailValue, { color: historyDetailTrade.stopLoss ? '#2563eb' : '#666' }]}>
+                    <Text style={[styles.detailValue, { color: historyDetailTrade.stopLoss ? '#dc2626' : '#666' }]}>
                       {historyDetailTrade.stopLoss || 'Not Set'}
                     </Text>
                   </View>
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>Take Profit</Text>
-                    <Text style={[styles.detailValue, { color: historyDetailTrade.takeProfit ? '#2563eb' : '#666' }]}>
+                    <Text style={[styles.detailValue, { color: historyDetailTrade.takeProfit ? '#dc2626' : '#666' }]}>
                       {historyDetailTrade.takeProfit || 'Not Set'}
                     </Text>
                   </View>
@@ -2916,7 +2916,7 @@ const HistoryTab = () => {
       style={styles.container}
       data={ctx.tradeHistory}
       keyExtractor={item => item._id}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#2563eb" />}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#dc2626" />}
       ListEmptyComponent={
         <View style={styles.emptyState}>
           <Ionicons name="document-text-outline" size={48} color="#666" />
@@ -2928,8 +2928,8 @@ const HistoryTab = () => {
           <View style={styles.historyHeader}>
             <View style={styles.historyLeft}>
               <Text style={styles.historySymbol}>{item.symbol}</Text>
-              <View style={[styles.sideBadge, { backgroundColor: item.side === 'BUY' ? '#2563eb20' : '#2563eb20' }]}>
-                <Text style={[styles.sideText, { color: item.side === 'BUY' ? '#2563eb' : '#2563eb' }]}>{item.side}</Text>
+              <View style={[styles.sideBadge, { backgroundColor: item.side === 'BUY' ? '#dc262620' : '#dc262620' }]}>
+                <Text style={[styles.sideText, { color: item.side === 'BUY' ? '#dc2626' : '#dc2626' }]}>{item.side}</Text>
               </View>
               {item.closedBy === 'ADMIN' && (
                 <View style={styles.adminBadge}>
@@ -3321,7 +3321,7 @@ const ChartTab = () => {
 
             {/* Execute Button */}
             <TouchableOpacity 
-              style={[styles.executeBtn, { backgroundColor: orderSide === 'BUY' ? '#2563eb' : '#2563eb' }]}
+              style={[styles.executeBtn, { backgroundColor: orderSide === 'BUY' ? '#dc2626' : '#dc2626' }]}
               onPress={executeTrade}
             >
               <Text style={styles.executeBtnText}>
@@ -3353,7 +3353,7 @@ const ChartTab = () => {
                     <Text style={styles.symbolPickerSymbol}>{inst.symbol}</Text>
                     <Text style={styles.symbolPickerName}>{inst.name}</Text>
                   </View>
-                  {chartTabs.some(t => t.symbol === inst.symbol) && <Ionicons name="checkmark" size={20} color="#2563eb" />}
+                  {chartTabs.some(t => t.symbol === inst.symbol) && <Ionicons name="checkmark" size={20} color="#dc2626" />}
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -3486,7 +3486,7 @@ const MainTradingScreen = ({ navigation, route }) => {
 };
 
 // Gold color constant
-const GOLD = '#2563eb';
+const GOLD = '#dc2626';
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0a0a0a' },
@@ -3503,7 +3503,7 @@ const styles = StyleSheet.create({
   
   accountCard: { margin: 16, padding: 16, backgroundColor: '#141414', borderRadius: 16, borderWidth: 1, borderColor: '#1e1e1e' },
   accountCardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
-  accountIconContainer: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#2563eb20', justifyContent: 'center', alignItems: 'center' },
+  accountIconContainer: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#dc262620', justifyContent: 'center', alignItems: 'center' },
   accountInfo: { flex: 1, marginLeft: 12 },
   accountId: { color: '#fff', fontSize: 16, fontWeight: '600' },
   accountType: { color: '#666', fontSize: 12, marginTop: 2 },
@@ -3771,8 +3771,8 @@ const styles = StyleSheet.create({
   newsCardContentVertical: { flex: 1, padding: 14, justifyContent: 'space-between' },
   newsCardContentFull: { padding: 14 },
   newsCardMeta: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  newsCategoryBadge: { backgroundColor: '#2563eb20', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 },
-  newsCategoryText: { color: '#2563eb', fontSize: 11, fontWeight: '600' },
+  newsCategoryBadge: { backgroundColor: '#dc262620', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 },
+  newsCategoryText: { color: '#dc2626', fontSize: 11, fontWeight: '600' },
   newsTime: { color: '#666', fontSize: 11 },
   newsCardTitle: { color: '#fff', fontSize: 14, fontWeight: '600', lineHeight: 20, marginBottom: 6 },
   newsCardDesc: { color: '#888', fontSize: 12, lineHeight: 17, marginBottom: 10 },
@@ -3793,12 +3793,12 @@ const styles = StyleSheet.create({
   positionsCard: { margin: 16, padding: 16, backgroundColor: '#000000', borderRadius: 16, borderWidth: 1, borderColor: '#1a1a1a' },
   positionsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   positionsTitle: { color: '#fff', fontSize: 16, fontWeight: '600' },
-  positionsCount: { color: '#2563eb', fontSize: 14 },
+  positionsCount: { color: '#dc2626', fontSize: 14 },
   noPositionsText: { color: '#666', fontSize: 14, textAlign: 'center', paddingVertical: 16 },
   positionRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 12, backgroundColor: '#000000', borderRadius: 12, marginBottom: 8 },
   positionSide: { fontSize: 12, marginTop: 2 },
   positionPnlValue: { fontSize: 16, fontWeight: '600' },
-  viewAllText: { color: '#2563eb', fontSize: 14, textAlign: 'center', paddingTop: 8 },
+  viewAllText: { color: '#dc2626', fontSize: 14, textAlign: 'center', paddingTop: 8 },
   
   // News Section (Home Tab)
   newsSection: { margin: 16, marginTop: 8 },
@@ -3807,11 +3807,11 @@ const styles = StyleSheet.create({
   newsTab: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: 10 },
   newsTabActive: { backgroundColor: '#000000' },
   newsTabText: { color: '#666', fontSize: 12, fontWeight: '500' },
-  newsTabTextActive: { color: '#2563eb' },
+  newsTabTextActive: { color: '#dc2626' },
   newsContent: {},
   newsItem: { backgroundColor: '#000000', borderRadius: 12, padding: 16, marginBottom: 10, borderWidth: 1, borderColor: '#1a1a1a' },
-  newsCategory: { backgroundColor: '#2563eb20', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, alignSelf: 'flex-start', marginBottom: 8 },
-  newsCategoryText: { color: '#2563eb', fontSize: 11, fontWeight: '600' },
+  newsCategory: { backgroundColor: '#dc262620', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, alignSelf: 'flex-start', marginBottom: 8 },
+  newsCategoryText: { color: '#dc2626', fontSize: 11, fontWeight: '600' },
   newsTitle: { color: '#fff', fontSize: 14, fontWeight: '500', lineHeight: 20, marginBottom: 8 },
   newsMeta: { flexDirection: 'row', justifyContent: 'space-between' },
   newsSource: { color: '#888', fontSize: 12 },
@@ -3821,8 +3821,8 @@ const styles = StyleSheet.create({
   calendarHeaderText: { color: '#666', fontSize: 11, fontWeight: '600', width: 50, textAlign: 'center' },
   calendarRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#000000' },
   calendarTime: { color: '#fff', fontSize: 12, fontWeight: '500', width: 50, textAlign: 'center' },
-  currencyBadge: { backgroundColor: '#2563eb20', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, width: 50, alignItems: 'center' },
-  currencyText: { color: '#2563eb', fontSize: 11, fontWeight: '600' },
+  currencyBadge: { backgroundColor: '#dc262620', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, width: 50, alignItems: 'center' },
+  currencyText: { color: '#dc2626', fontSize: 11, fontWeight: '600' },
   eventName: { color: '#fff', fontSize: 13, fontWeight: '500' },
   eventForecast: { color: '#666', fontSize: 10, marginTop: 2 },
   impactDot: { width: 10, height: 10, borderRadius: 5 },
@@ -3890,7 +3890,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   marketTabBtnActive: {
-    backgroundColor: '#2563eb',
+    backgroundColor: '#dc2626',
   },
   marketTabText: {
     color: '#666',
@@ -3971,7 +3971,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#1a1a1a',
   },
-  categoryBtnActive: { backgroundColor: '#2563eb' },
+  categoryBtnActive: { backgroundColor: '#dc2626' },
   categoryText: { color: '#666', fontSize: 12, fontWeight: '500' },
   categoryTextActive: { color: '#000', fontWeight: '600' },
   
@@ -3992,7 +3992,7 @@ const styles = StyleSheet.create({
   askPrice: { color: '#ef4444', fontSize: 13, fontWeight: '500' },
   priceLabel: { color: '#666', fontSize: 9, marginTop: 1 },
   spreadBadgeCol: { paddingHorizontal: 6, paddingVertical: 4, borderRadius: 4, marginHorizontal: 4, minWidth: 32, alignItems: 'center', borderWidth: 1 },
-  spreadBadgeText: { color: '#2563eb', fontSize: 11, fontWeight: '600' },
+  spreadBadgeText: { color: '#dc2626', fontSize: 11, fontWeight: '600' },
   chartIconBtn: { 
     width: 32, 
     height: 32, 
@@ -4011,8 +4011,8 @@ const styles = StyleSheet.create({
   chartVolLabel: { color: '#666', fontSize: 10 },
   chartVolValue: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
   chartTradeButtons: { flexDirection: 'row', gap: 10 },
-  chartSellButton: { flex: 1, backgroundColor: '#2563eb', borderRadius: 10, paddingVertical: 12, alignItems: 'center' },
-  chartBuyButton: { flex: 1, backgroundColor: '#2563eb', borderRadius: 10, paddingVertical: 12, alignItems: 'center' },
+  chartSellButton: { flex: 1, backgroundColor: '#dc2626', borderRadius: 10, paddingVertical: 12, alignItems: 'center' },
+  chartBuyButton: { flex: 1, backgroundColor: '#dc2626', borderRadius: 10, paddingVertical: 12, alignItems: 'center' },
   chartSellLabel: { color: 'rgba(255,255,255,0.8)', fontSize: 11, fontWeight: '600' },
   chartBuyLabel: { color: 'rgba(255,255,255,0.8)', fontSize: 11, fontWeight: '600' },
   chartSellPrice: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
@@ -4031,7 +4031,7 @@ const styles = StyleSheet.create({
   orderCloseBtn: { padding: 6 },
   leverageRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#000000', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, marginBottom: 10 },
   leverageLabel: { color: '#888', fontSize: 12 },
-  leverageValue: { color: '#2563eb', fontSize: 14, fontWeight: 'bold' },
+  leverageValue: { color: '#dc2626', fontSize: 14, fontWeight: 'bold' },
   quickTradeRow: { flexDirection: 'row', gap: 8, marginBottom: 6 },
   quickSellBtn: { flex: 1, backgroundColor: '#ef4444', borderRadius: 8, paddingVertical: 10, alignItems: 'center' },
   quickBuyBtn: { flex: 1, backgroundColor: '#3b82f6', borderRadius: 8, paddingVertical: 10, alignItems: 'center' },
@@ -4042,14 +4042,14 @@ const styles = StyleSheet.create({
   spreadInfoText: { color: '#666', fontSize: 11 },
   orderTypeRow: { flexDirection: 'row', gap: 8, marginBottom: 10 },
   orderTypeBtn: { flex: 1, paddingVertical: 10, borderRadius: 8, alignItems: 'center' },
-  orderTypeBtnActive: { backgroundColor: '#2563eb' },
+  orderTypeBtnActive: { backgroundColor: '#dc2626' },
   orderTypeBtnText: { fontSize: 13, fontWeight: '600' },
   orderTypeBtnTextActive: { color: '#fff' },
   pendingTypeRow: { flexDirection: 'row', gap: 8, marginBottom: 10 },
   pendingTypeBtn: { flex: 1, paddingVertical: 8, borderRadius: 8, alignItems: 'center', borderWidth: 1 },
-  pendingTypeBtnActive: { borderColor: '#2563eb' },
+  pendingTypeBtnActive: { borderColor: '#dc2626' },
   pendingTypeText: { color: '#666', fontSize: 12 },
-  pendingTypeTextActive: { color: '#2563eb' },
+  pendingTypeTextActive: { color: '#dc2626' },
   inputSection: { marginBottom: 10 },
   inputLabel: { color: '#888', fontSize: 11, marginBottom: 4 },
   priceInput: { backgroundColor: '#000000', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, color: '#fff', fontSize: 15 },
@@ -4064,7 +4064,7 @@ const styles = StyleSheet.create({
   finalBuyBtn: { flex: 1, backgroundColor: '#3b82f6', paddingVertical: 12, borderRadius: 8, alignItems: 'center' },
   finalBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' },
   spreadBadge: { backgroundColor: '#000000', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4, marginHorizontal: 8, borderWidth: 1, borderColor: '#1a1a1a' },
-  spreadText: { color: '#2563eb', fontSize: 10 },
+  spreadText: { color: '#dc2626', fontSize: 10 },
   
   // Trade
   priceBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, backgroundColor: '#000000' },
@@ -4079,14 +4079,14 @@ const styles = StyleSheet.create({
   summaryRow: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#000000' },
   summaryLabel: { color: '#666', fontSize: 14 },
   summaryValue: { color: '#fff', fontSize: 14 },
-  pendingStatus: { color: '#2563eb', fontSize: 12, fontWeight: '600' },
+  pendingStatus: { color: '#dc2626', fontSize: 12, fontWeight: '600' },
   historySide: { fontSize: 12, marginLeft: 8 },
   
   tradeTabs: { flexDirection: 'row', backgroundColor: '#000000', borderBottomWidth: 1, borderBottomColor: '#000000' },
   tradeTabBtn: { flex: 1, paddingVertical: 12, alignItems: 'center' },
-  tradeTabBtnActive: { borderBottomWidth: 2, borderBottomColor: '#2563eb' },
+  tradeTabBtnActive: { borderBottomWidth: 2, borderBottomColor: '#dc2626' },
   tradeTabText: { color: '#666', fontSize: 14 },
-  tradeTabTextActive: { color: '#2563eb', fontWeight: '600' },
+  tradeTabTextActive: { color: '#dc2626', fontWeight: '600' },
   
   tradesList: { flex: 1 },
   positionItem: { paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#000000' },
@@ -4099,13 +4099,13 @@ const styles = StyleSheet.create({
   positionDetail: { color: '#666', fontSize: 12, marginTop: 4 },
   slTpText: { color: '#888', fontSize: 11, marginTop: 2 },
   positionActions: { flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 8 },
-  editBtn: { padding: 10, backgroundColor: '#2563eb20', borderRadius: 10 },
-  closeTradeBtn: { padding: 10, backgroundColor: '#2563eb20', borderRadius: 10 },
+  editBtn: { padding: 10, backgroundColor: '#dc262620', borderRadius: 10 },
+  closeTradeBtn: { padding: 10, backgroundColor: '#dc262620', borderRadius: 10 },
   positionPnlCol: { alignItems: 'flex-end' },
   positionPnl: { fontSize: 15, fontWeight: '600' },
   currentPriceText: { color: '#666', fontSize: 12, marginTop: 2 },
-  closeBtn: { backgroundColor: '#2563eb20', paddingHorizontal: 16, paddingVertical: 6, borderRadius: 6 },
-  closeBtnText: { color: '#2563eb', fontSize: 12, fontWeight: '600' },
+  closeBtn: { backgroundColor: '#dc262620', paddingHorizontal: 16, paddingVertical: 6, borderRadius: 6 },
+  closeBtnText: { color: '#dc2626', fontSize: 12, fontWeight: '600' },
   
   // SL/TP Modal
   slTpModalOverlay: { flex: 1, justifyContent: 'flex-end' },
@@ -4122,53 +4122,53 @@ const styles = StyleSheet.create({
   slTpButtonRow: { flexDirection: 'row', gap: 12, marginTop: 8 },
   slTpClearBtn: { flex: 1, backgroundColor: '#000000', padding: 16, borderRadius: 12, alignItems: 'center' },
   slTpClearBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
-  slTpSaveBtn: { flex: 2, backgroundColor: '#2563eb', padding: 16, borderRadius: 12, alignItems: 'center' },
+  slTpSaveBtn: { flex: 2, backgroundColor: '#dc2626', padding: 16, borderRadius: 12, alignItems: 'center' },
   slTpSaveBtnText: { color: '#000', fontSize: 16, fontWeight: 'bold' },
   
   // Trade Details Modal
   tradeDetailsContent: { backgroundColor: '#000000', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: 40, maxHeight: '85%' },
   tradeDetailsScroll: { maxHeight: 500 },
   detailSection: { backgroundColor: '#000000', borderRadius: 12, padding: 16, marginBottom: 12 },
-  detailSectionTitle: { color: '#2563eb', fontSize: 14, fontWeight: 'bold', marginBottom: 12 },
+  detailSectionTitle: { color: '#dc2626', fontSize: 14, fontWeight: 'bold', marginBottom: 12 },
   detailRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#000000' },
   detailLabel: { color: '#888', fontSize: 14 },
   detailValue: { color: '#fff', fontSize: 14, fontWeight: '500' },
   detailActions: { flexDirection: 'row', gap: 12, marginTop: 8, marginBottom: 20 },
-  detailEditBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#2563eb20', padding: 14, borderRadius: 12, borderWidth: 1, borderColor: '#2563eb' },
-  detailEditText: { color: '#2563eb', fontSize: 15, fontWeight: '600' },
-  detailCloseBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#2563eb', padding: 14, borderRadius: 12 },
+  detailEditBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#dc262620', padding: 14, borderRadius: 12, borderWidth: 1, borderColor: '#dc2626' },
+  detailEditText: { color: '#dc2626', fontSize: 15, fontWeight: '600' },
+  detailCloseBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#dc2626', padding: 14, borderRadius: 12 },
   detailCloseText: { color: '#fff', fontSize: 15, fontWeight: '600' },
   
   // iOS-style Confirmation Modal
   confirmModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', padding: 40 },
   confirmModalContent: { backgroundColor: '#000000', borderRadius: 20, padding: 24, width: '100%', alignItems: 'center' },
-  confirmModalIcon: { width: 60, height: 60, borderRadius: 30, backgroundColor: '#2563eb20', justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
+  confirmModalIcon: { width: 60, height: 60, borderRadius: 30, backgroundColor: '#dc262620', justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
   confirmModalTitle: { color: '#fff', fontSize: 18, fontWeight: 'bold', marginBottom: 8 },
   confirmModalMessage: { color: '#888', fontSize: 15, textAlign: 'center', marginBottom: 24 },
   confirmModalButtons: { flexDirection: 'row', gap: 12, width: '100%' },
   confirmCancelBtn: { flex: 1, backgroundColor: '#000000', padding: 14, borderRadius: 12, alignItems: 'center' },
   confirmCancelText: { color: '#fff', fontSize: 16, fontWeight: '600' },
-  confirmCloseBtn: { flex: 1, backgroundColor: '#2563eb', padding: 14, borderRadius: 12, alignItems: 'center' },
+  confirmCloseBtn: { flex: 1, backgroundColor: '#dc2626', padding: 14, borderRadius: 12, alignItems: 'center' },
   confirmCloseText: { color: '#fff', fontSize: 16, fontWeight: '600' },
   
   // Close All Buttons
   closeAllRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: '#000000' },
-  closeAllBtn: { flex: 1, backgroundColor: '#2563eb20', paddingVertical: 8, borderRadius: 8, alignItems: 'center', borderWidth: 1, borderColor: '#2563eb' },
-  closeAllText: { color: '#2563eb', fontSize: 12, fontWeight: '600' },
-  closeProfitBtn: { flex: 1, backgroundColor: '#2563eb20', paddingVertical: 8, borderRadius: 8, alignItems: 'center', borderWidth: 1, borderColor: '#2563eb' },
-  closeProfitText: { color: '#2563eb', fontSize: 12, fontWeight: '600' },
-  closeLossBtn: { flex: 1, backgroundColor: '#2563eb20', paddingVertical: 8, borderRadius: 8, alignItems: 'center', borderWidth: 1, borderColor: '#2563eb' },
-  closeLossText: { color: '#2563eb', fontSize: 12, fontWeight: '600' },
+  closeAllBtn: { flex: 1, backgroundColor: '#dc262620', paddingVertical: 8, borderRadius: 8, alignItems: 'center', borderWidth: 1, borderColor: '#dc2626' },
+  closeAllText: { color: '#dc2626', fontSize: 12, fontWeight: '600' },
+  closeProfitBtn: { flex: 1, backgroundColor: '#dc262620', paddingVertical: 8, borderRadius: 8, alignItems: 'center', borderWidth: 1, borderColor: '#dc2626' },
+  closeProfitText: { color: '#dc2626', fontSize: 12, fontWeight: '600' },
+  closeLossBtn: { flex: 1, backgroundColor: '#dc262620', paddingVertical: 8, borderRadius: 8, alignItems: 'center', borderWidth: 1, borderColor: '#dc2626' },
+  closeLossText: { color: '#dc2626', fontSize: 12, fontWeight: '600' },
   
   // Cancel Order Button
-  cancelOrderBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#2563eb20', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: '#2563eb' },
-  cancelOrderText: { color: '#2563eb', fontSize: 12, fontWeight: '600' },
+  cancelOrderBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#dc262620', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: '#dc2626' },
+  cancelOrderText: { color: '#dc2626', fontSize: 12, fontWeight: '600' },
   
   // Swipe to Close
-  swipeCloseBtn: { backgroundColor: '#2563eb', justifyContent: 'center', alignItems: 'center', width: 80, height: '100%' },
+  swipeCloseBtn: { backgroundColor: '#dc2626', justifyContent: 'center', alignItems: 'center', width: 80, height: '100%' },
   swipeCloseText: { color: '#fff', fontSize: 12, fontWeight: '600', marginTop: 4 },
   
-  tradeButton: { margin: 16, padding: 16, backgroundColor: '#2563eb', borderRadius: 12, alignItems: 'center' },
+  tradeButton: { margin: 16, padding: 16, backgroundColor: '#dc2626', borderRadius: 12, alignItems: 'center' },
   tradeButtonText: { color: '#000', fontSize: 16, fontWeight: 'bold' },
   
   // Order Panel
@@ -4179,8 +4179,8 @@ const styles = StyleSheet.create({
   
   sideToggle: { flexDirection: 'row', gap: 12, marginBottom: 20 },
   sideBtn: { flex: 1, padding: 16, borderRadius: 12, backgroundColor: '#000000', alignItems: 'center' },
-  sideBtnSell: { backgroundColor: '#2563eb' },
-  sideBtnBuy: { backgroundColor: '#2563eb' },
+  sideBtnSell: { backgroundColor: '#dc2626' },
+  sideBtnBuy: { backgroundColor: '#dc2626' },
   sideBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' },
   sideBtnPrice: { color: '#fff', fontSize: 18, fontWeight: 'bold', marginTop: 4 },
   
@@ -4209,8 +4209,8 @@ const styles = StyleSheet.create({
   historyItem: { padding: 12, borderBottomWidth: 1, borderBottomColor: '#000000' },
   historyDetails: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
   historyDetail: { color: '#666', fontSize: 12 },
-  adminBadge: { backgroundColor: '#2563eb20', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4 },
-  adminBadgeText: { color: '#2563eb', fontSize: 10 },
+  adminBadge: { backgroundColor: '#dc262620', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4 },
+  adminBadgeText: { color: '#dc2626', fontSize: 10 },
   
   // More Menu - Matching screenshot
   moreMenuHeader: { paddingTop: 60, paddingHorizontal: 20, paddingBottom: 20 },
@@ -4221,7 +4221,7 @@ const styles = StyleSheet.create({
   moreMenuItemText: { flex: 1, color: '#fff', fontSize: 16 },
   themeToggleItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#000000' },
   themeToggle: { width: 50, height: 28, backgroundColor: '#000000', borderRadius: 14, justifyContent: 'center', paddingHorizontal: 2 },
-  themeToggleActive: { backgroundColor: '#2563eb' },
+  themeToggleActive: { backgroundColor: '#dc2626' },
   themeToggleThumb: { width: 24, height: 24, backgroundColor: '#fff', borderRadius: 12 },
   themeToggleThumbActive: { marginLeft: 'auto' },
   
@@ -4230,9 +4230,9 @@ const styles = StyleSheet.create({
   chartTabsBar: { flexDirection: 'row', alignItems: 'center', paddingTop: 50, paddingLeft: 8, backgroundColor: '#000000', borderBottomWidth: 1, borderBottomColor: '#000000' },
   chartTabsScroll: { flexGrow: 0 },
   chartTab: { paddingHorizontal: 14, paddingVertical: 10, marginRight: 2, borderBottomWidth: 2, borderBottomColor: 'transparent' },
-  chartTabActive: { borderBottomColor: '#2563eb' },
+  chartTabActive: { borderBottomColor: '#dc2626' },
   chartTabText: { color: '#666', fontSize: 13, fontWeight: '500' },
-  chartTabTextActive: { color: '#2563eb' },
+  chartTabTextActive: { color: '#dc2626' },
   addChartBtn: { paddingHorizontal: 12, paddingVertical: 10 },
   chartWrapper: { flex: 1, backgroundColor: '#000000', minHeight: 400 },
   sentimentSection: { backgroundColor: '#000000', paddingHorizontal: 16, paddingVertical: 12 },
@@ -4260,7 +4260,7 @@ const styles = StyleSheet.create({
   symbolPickerHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: '#000000' },
   symbolPickerTitle: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
   symbolPickerItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: '#000000' },
-  symbolPickerItemActive: { backgroundColor: '#2563eb10' },
+  symbolPickerItemActive: { backgroundColor: '#dc262610' },
   symbolPickerSymbol: { color: '#fff', fontSize: 16, fontWeight: '600' },
   symbolPickerName: { color: '#666', fontSize: 12, marginTop: 2 },
   
@@ -4328,21 +4328,21 @@ const styles = StyleSheet.create({
   leverageModalContent: { backgroundColor: '#000000', borderRadius: 16, padding: 16, width: 200 },
   leverageModalTitle: { color: '#fff', fontSize: 16, fontWeight: 'bold', textAlign: 'center', marginBottom: 12 },
   leverageModalItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 16, borderRadius: 8 },
-  leverageModalItemActive: { backgroundColor: '#2563eb20' },
+  leverageModalItemActive: { backgroundColor: '#dc262620' },
   leverageModalItemText: { color: '#888', fontSize: 14, fontWeight: '600' },
-  leverageModalItemTextActive: { color: '#2563eb' },
+  leverageModalItemTextActive: { color: '#dc2626' },
   
   // Leverage Selector
   leverageSelector: { flexDirection: 'row', gap: 6 },
   leverageOption: { paddingHorizontal: 10, paddingVertical: 6, backgroundColor: '#000000', borderRadius: 6, borderWidth: 1, borderColor: '#1a1a1a' },
-  leverageOptionActive: { backgroundColor: '#2563eb20', borderColor: '#2563eb' },
+  leverageOptionActive: { backgroundColor: '#dc262620', borderColor: '#dc2626' },
   leverageOptionText: { color: '#888', fontSize: 12, fontWeight: '600' },
-  leverageOptionTextActive: { color: '#2563eb' },
+  leverageOptionTextActive: { color: '#dc2626' },
   
   // Account Selector - Below search bar
   accountSelector: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#000000', marginHorizontal: 12, marginTop: 0, marginBottom: 8, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: '#1a1a1a' },
   accountSelectorLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  accountIcon: { width: 24, height: 24, borderRadius: 12, backgroundColor: '#2563eb20', justifyContent: 'center', alignItems: 'center' },
+  accountIcon: { width: 24, height: 24, borderRadius: 12, backgroundColor: '#dc262620', justifyContent: 'center', alignItems: 'center' },
   accountSelectorLabel: { color: '#666', fontSize: 9 },
   accountSelectorValue: { color: '#fff', fontSize: 12, fontWeight: '600' },
   
@@ -4354,14 +4354,14 @@ const styles = StyleSheet.create({
   accountPickerTitle: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
   accountPickerList: { paddingHorizontal: 12, paddingBottom: 40 },
   accountPickerItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, marginVertical: 4, backgroundColor: '#000000', borderRadius: 12 },
-  accountPickerItemActive: { backgroundColor: '#2563eb15', borderWidth: 1, borderColor: '#2563eb' },
+  accountPickerItemActive: { backgroundColor: '#dc262615', borderWidth: 1, borderColor: '#dc2626' },
   accountPickerItemLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   accountPickerIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#000000', justifyContent: 'center', alignItems: 'center' },
-  accountPickerIconActive: { backgroundColor: '#2563eb20' },
+  accountPickerIconActive: { backgroundColor: '#dc262620' },
   accountPickerNumber: { color: '#fff', fontSize: 15, fontWeight: '600' },
   accountPickerType: { color: '#666', fontSize: 12, marginTop: 2 },
   accountPickerItemRight: { alignItems: 'flex-end', gap: 4 },
-  accountPickerBalance: { color: '#2563eb', fontSize: 16, fontWeight: 'bold' },
+  accountPickerBalance: { color: '#dc2626', fontSize: 16, fontWeight: 'bold' },
 });
 
 export default MainTradingScreen;

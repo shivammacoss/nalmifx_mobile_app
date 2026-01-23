@@ -257,8 +257,8 @@ const OrderBookScreen = ({ navigation }) => {
         <View style={styles.tradeHeader}>
           <View style={styles.tradeSymbolRow}>
             <Text style={[styles.tradeSymbol, { color: colors.textPrimary }]}>{trade.symbol}</Text>
-            <View style={[styles.sideBadge, { backgroundColor: trade.side === 'BUY' ? '#2563eb20' : '#ef444420' }]}>
-              <Text style={[styles.sideText, { color: trade.side === 'BUY' ? '#2563eb' : '#ef4444' }]}>
+            <View style={[styles.sideBadge, { backgroundColor: trade.side === 'BUY' ? '#dc262620' : '#ef444420' }]}>
+              <Text style={[styles.sideText, { color: trade.side === 'BUY' ? '#dc2626' : '#ef4444' }]}>
                 {trade.side}
               </Text>
             </View>
@@ -309,7 +309,7 @@ const OrderBookScreen = ({ navigation }) => {
       <View style={styles.tradeDetails}>
         <View style={styles.detailRow}>
           <Text style={[styles.detailLabel, { color: colors.textMuted }]}>Side</Text>
-          <Text style={[styles.detailValue, { color: order.side === 'BUY' ? '#2563eb' : '#ef4444' }]}>
+          <Text style={[styles.detailValue, { color: order.side === 'BUY' ? '#dc2626' : '#ef4444' }]}>
             {order.side}
           </Text>
         </View>
@@ -334,8 +334,8 @@ const OrderBookScreen = ({ navigation }) => {
       <View style={styles.tradeHeader}>
         <View style={styles.tradeSymbolRow}>
           <Text style={[styles.tradeSymbol, { color: colors.textPrimary }]}>{trade.symbol}</Text>
-          <View style={[styles.sideBadge, { backgroundColor: trade.side === 'BUY' ? '#2563eb20' : '#ef444420' }]}>
-            <Text style={[styles.sideText, { color: trade.side === 'BUY' ? '#2563eb' : '#ef4444' }]}>
+          <View style={[styles.sideBadge, { backgroundColor: trade.side === 'BUY' ? '#dc262620' : '#ef444420' }]}>
+            <Text style={[styles.sideText, { color: trade.side === 'BUY' ? '#dc2626' : '#ef4444' }]}>
               {trade.side}
             </Text>
           </View>
@@ -574,7 +574,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   accountOptionActive: {
-    backgroundColor: '#2563eb20',
+    backgroundColor: '#dc262620',
   },
   accountOptionText: {
     fontSize: 14,
@@ -593,7 +593,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   tabActive: {
-    backgroundColor: '#2563eb',
+    backgroundColor: '#dc2626',
   },
   tabText: {
     color: '#666',
@@ -693,13 +693,13 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   closeBtn: {
-    backgroundColor: '#2563eb20',
+    backgroundColor: '#dc262620',
     paddingVertical: 10,
     borderRadius: 8,
     alignItems: 'center',
   },
   closeBtnText: {
-    color: '#2563eb',
+    color: '#dc2626',
     fontSize: 14,
     fontWeight: '600',
   },

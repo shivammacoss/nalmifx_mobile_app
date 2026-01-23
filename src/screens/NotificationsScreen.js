@@ -180,7 +180,7 @@ const NotificationsScreen = ({ navigation }) => {
       case 'STOP_LOSS_HIT':
         return { name: 'alert-circle', color: '#ef4444', bg: '#ef444420' };
       case 'TAKE_PROFIT_HIT':
-        return { name: 'trophy', color: '#2563eb', bg: '#2563eb20' };
+        return { name: 'trophy', color: '#dc2626', bg: '#dc262620' };
       case 'PENDING_ORDER':
         return { name: 'time', color: '#a855f7', bg: '#a855f720' };
       case 'PENDING_TRIGGERED':
@@ -331,7 +331,7 @@ const styles = StyleSheet.create({
   backBtn: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
   headerTitle: { fontSize: 18, fontWeight: 'bold' },
   markAllBtn: { paddingHorizontal: 8, paddingVertical: 4 },
-  markAllText: { color: '#2563eb', fontSize: 13, fontWeight: '500' },
+  markAllText: { color: '#dc2626', fontSize: 13, fontWeight: '500' },
   
   // Unread Banner
   unreadBanner: { 

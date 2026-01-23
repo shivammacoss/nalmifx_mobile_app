@@ -215,13 +215,13 @@ const WalletScreen = ({ navigation }) => {
       case 'Approved': 
       case 'APPROVED': 
       case 'Completed': 
-        return '#2563eb';
+        return '#dc2626';
       case 'Pending': 
       case 'PENDING': 
-        return '#2563eb';
+        return '#dc2626';
       case 'Rejected': 
       case 'REJECTED': 
-        return '#2563eb';
+        return '#dc2626';
       default: return '#666';
     }
   };

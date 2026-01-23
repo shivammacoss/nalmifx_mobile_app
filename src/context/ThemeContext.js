@@ -48,7 +48,7 @@ const lightTheme = {
     primary: '#1e40af',
     primaryHover: '#1e3a8a',
     secondary: '#3b82f6',
-    accent: '#2563eb',
+    accent: '#dc2626',
     bgPrimary: '#f5f5f5',
     bgSecondary: '#ffffff',
     bgCard: '#ffffff',

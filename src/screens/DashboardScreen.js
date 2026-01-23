@@ -121,18 +121,18 @@ const DashboardScreen = () => {
 
   const getImpactColor = (impact) => {
     switch (impact) {
-      case 'high': return '#2563eb';
-      case 'medium': return '#2563eb';
-      case 'low': return '#2563eb';
+      case 'high': return '#dc2626';
+      case 'medium': return '#dc2626';
+      case 'low': return '#dc2626';
       default: return '#666';
     }
   };
 
   const quickActions = [
-    { id: 'accounts', icon: 'wallet-outline', label: 'Accounts', screen: 'Accounts', color: '#2563eb' },
-    { id: 'wallet', icon: 'card-outline', label: 'Wallet', screen: 'Wallet', color: '#2563eb' },
-    { id: 'copy', icon: 'copy-outline', label: 'Copy Trade', screen: 'CopyTrading', color: '#2563eb' },
-    { id: 'ib', icon: 'people-outline', label: 'IB Program', screen: 'IB', color: '#2563eb' },
+    { id: 'accounts', icon: 'wallet-outline', label: 'Accounts', screen: 'Accounts', color: '#dc2626' },
+    { id: 'wallet', icon: 'card-outline', label: 'Wallet', screen: 'Wallet', color: '#dc2626' },
+    { id: 'copy', icon: 'copy-outline', label: 'Copy Trade', screen: 'CopyTrading', color: '#dc2626' },
+    { id: 'ib', icon: 'people-outline', label: 'IB Program', screen: 'IB', color: '#dc2626' },
   ];
 
   return (
@@ -323,13 +323,13 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   newsCategory: {
-    backgroundColor: '#2563eb20',
+    backgroundColor: '#dc262620',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 6,
   },
   newsCategoryText: {
-    color: '#2563eb',
+    color: '#dc2626',
     fontSize: 11,
     fontWeight: '600',
   },
