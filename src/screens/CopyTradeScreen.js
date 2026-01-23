@@ -391,16 +391,16 @@ const CopyTradeScreen = ({ navigation }) => {
       >
         {/* Become a Master Banner */}
         {!myMasterProfile && (
-          <TouchableOpacity style={styles.masterBanner} onPress={() => setShowMasterModal(true)}>
-            <View style={styles.masterBannerIcon}>
-              <Ionicons name="trophy" size={24} color="#dc2626" />
+          <TouchableOpacity style={[styles.masterBanner, { backgroundColor: `${colors.accent}20`, borderColor: `${colors.accent}50` }]} onPress={() => setShowMasterModal(true)}>
+            <View style={[styles.masterBannerIcon, { backgroundColor: `${colors.accent}30` }]}>
+              <Ionicons name="trophy" size={24} color={colors.accent} />
             </View>
             <View style={styles.masterBannerText}>
               <Text style={[styles.masterBannerTitle, { color: colors.textPrimary }]}>Become a Master Trader</Text>
               <Text style={[styles.masterBannerSub, { color: colors.textMuted }]}>Share your trades and earn commission</Text>
             </View>
-            <View style={styles.applyBtn}>
-              <Text style={styles.applyBtnText}>Apply</Text>
+            <View style={[styles.applyBtn, { backgroundColor: colors.accent }]}>
+              <Text style={[styles.applyBtnText, { color: '#fff' }]}>Apply</Text>
             </View>
           </TouchableOpacity>
         )}
@@ -447,7 +447,7 @@ const CopyTradeScreen = ({ navigation }) => {
             {tabs.map(tab => (
               <TouchableOpacity
                 key={tab}
-                style={[styles.tab, { backgroundColor: colors.bgSecondary }, activeTab === tab && styles.tabActive]}
+                style={[styles.tab, { backgroundColor: colors.bgSecondary }, activeTab === tab && { backgroundColor: colors.accent }]}
                 onPress={() => setActiveTab(tab)}
               >
                 <Text style={[styles.tabText, { color: colors.textMuted }, activeTab === tab && styles.tabTextActive]}>
@@ -495,8 +495,8 @@ const CopyTradeScreen = ({ navigation }) => {
                 return (
                   <View key={master._id} style={[styles.masterCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
                     <View style={styles.masterHeader}>
-                      <View style={styles.masterAvatar}>
-                        <Text style={styles.avatarText}>{master.displayName?.charAt(0)}</Text>
+                      <View style={[styles.masterAvatar, { backgroundColor: `${colors.accent}30` }]}>
+                        <Text style={[styles.avatarText, { color: colors.accent }]}>{master.displayName?.charAt(0)}</Text>
                       </View>
                       <View style={styles.masterInfo}>
                         <Text style={[styles.masterName, { color: colors.textPrimary }]}>{master.displayName}</Text>
@@ -530,16 +530,16 @@ const CopyTradeScreen = ({ navigation }) => {
                     
                     {following ? (
                       <TouchableOpacity style={styles.followingBtn} onPress={() => setActiveTab('subscriptions')}>
-                        <Ionicons name="checkmark-circle" size={18} color="#dc2626" />
+                        <Ionicons name="checkmark-circle" size={18} color={colors.accent} />
                         <Text style={styles.followingBtnText}>Following</Text>
                       </TouchableOpacity>
                     ) : (
                       <TouchableOpacity 
-                        style={styles.followBtn}
+                        style={[styles.followBtn, { backgroundColor: colors.accent }]}
                         onPress={() => { setSelectedMaster(master); setShowFollowModal(true); }}
                       >
-                        <Ionicons name="add-circle-outline" size={18} color="#000" />
-                        <Text style={styles.followBtnText}>Follow</Text>
+                        <Ionicons name="add-circle-outline" size={18} color="#fff" />
+                        <Text style={[styles.followBtnText, { color: '#fff' }]}>Follow</Text>
                       </TouchableOpacity>
                     )}
                   </View>
@@ -615,8 +615,8 @@ const CopyTradeScreen = ({ navigation }) => {
                   </View>
                   
                   <View style={styles.subActions}>
-                    <TouchableOpacity style={styles.editBtn} onPress={() => handleEditSubscription(sub)}>
-                      <Ionicons name="settings-outline" size={18} color="#dc2626" />
+                    <TouchableOpacity style={[styles.editBtn, { backgroundColor: `${colors.accent}20` }]} onPress={() => handleEditSubscription(sub)}>
+                      <Ionicons name="settings-outline" size={18} color={colors.accent} />
                     </TouchableOpacity>
                     <TouchableOpacity style={styles.pauseBtn} onPress={() => handlePauseResume(sub._id, sub.status)}>
                       <Ionicons name={sub.status === 'ACTIVE' ? 'pause' : 'play'} size={18} color={sub.status === 'ACTIVE' ? '#eab308' : '#22c55e'} />
@@ -746,7 +746,7 @@ const CopyTradeScreen = ({ navigation }) => {
               {accounts.map((acc) => (
                 <TouchableOpacity
                   key={acc._id}
-                  style={[styles.accountCard, selectedAccount === acc._id && styles.accountCardActive]}
+                  style={[styles.accountCard, selectedAccount === acc._id && { backgroundColor: colors.accent, borderColor: colors.accent }]}
                   onPress={() => setSelectedAccount(acc._id)}
                 >
                   <Text style={[styles.accountNumber, selectedAccount === acc._id && { color: '#000' }]}>{acc.accountId}</Text>
@@ -760,10 +760,10 @@ const CopyTradeScreen = ({ navigation }) => {
               {['FIXED_LOT', 'MULTIPLIER'].map(mode => (
                 <TouchableOpacity
                   key={mode}
-                  style={[styles.copyModeBtn, copyMode === mode && styles.copyModeBtnActive]}
+                  style={[styles.copyModeBtn, copyMode === mode && { backgroundColor: `${colors.accent}20`, borderColor: colors.accent }]}
                   onPress={() => setCopyMode(mode)}
                 >
-                  <Text style={[styles.copyModeText, copyMode === mode && styles.copyModeTextActive]}>
+                  <Text style={[styles.copyModeText, copyMode === mode && { color: colors.accent }]}>
                     {mode === 'FIXED_LOT' ? 'Fixed Lot' : 'Multiplier'}
                   </Text>
                 </TouchableOpacity>
@@ -784,14 +784,14 @@ const CopyTradeScreen = ({ navigation }) => {
             </Text>
 
             <TouchableOpacity 
-              style={[styles.submitBtn, isSubmitting && styles.submitBtnDisabled]} 
+              style={[styles.submitBtn, { backgroundColor: colors.accent }, isSubmitting && styles.submitBtnDisabled]} 
               onPress={handleFollow}
               disabled={isSubmitting}
             >
               {isSubmitting ? (
-                <ActivityIndicator color="#000" />
+                <ActivityIndicator color="#fff" />
               ) : (
-                <Text style={styles.submitBtnText}>Start Following</Text>
+                <Text style={[styles.submitBtnText, { color: '#fff' }]}>Start Following</Text>
               )}
             </TouchableOpacity>
           </View>
@@ -833,7 +833,7 @@ const CopyTradeScreen = ({ navigation }) => {
               {accounts.map((acc) => (
                 <TouchableOpacity
                   key={acc._id}
-                  style={[styles.accountCard, masterForm.tradingAccountId === acc._id && styles.accountCardActive]}
+                  style={[styles.accountCard, masterForm.tradingAccountId === acc._id && { backgroundColor: colors.accent, borderColor: colors.accent }]}
                   onPress={() => setMasterForm(prev => ({ ...prev, tradingAccountId: acc._id }))}
                 >
                   <Text style={[styles.accountNumber, masterForm.tradingAccountId === acc._id && { color: '#000' }]}>{acc.accountId}</Text>
@@ -854,14 +854,14 @@ const CopyTradeScreen = ({ navigation }) => {
             <Text style={styles.inputHint}>Commission you'll earn from followers' profits</Text>
 
             <TouchableOpacity 
-              style={[styles.submitBtn, applyingMaster && styles.submitBtnDisabled]} 
+              style={[styles.submitBtn, { backgroundColor: colors.accent }, applyingMaster && styles.submitBtnDisabled]} 
               onPress={handleApplyMaster}
               disabled={applyingMaster}
             >
               {applyingMaster ? (
-                <ActivityIndicator color="#000" />
+                <ActivityIndicator color="#fff" />
               ) : (
-                <Text style={styles.submitBtnText}>Submit Application</Text>
+                <Text style={[styles.submitBtnText, { color: '#fff' }]}>Submit Application</Text>
               )}
             </TouchableOpacity>
           </View>
