@@ -556,6 +556,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
     borderRadius: 10,
     borderWidth: 1,
+    zIndex: 101,
   },
   accountSelectorText: {
     fontSize: 14,
@@ -567,6 +568,8 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
     overflow: 'hidden',
+    zIndex: 100,
+    elevation: 5,
   },
   accountOption: {
     paddingVertical: 12,
