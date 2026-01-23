@@ -34,6 +34,7 @@ const WalletScreen = ({ navigation }) => {
   const [transactionRef, setTransactionRef] = useState('');
   const [currencies, setCurrencies] = useState([]);
   const [selectedCurrency, setSelectedCurrency] = useState({ currency: 'USD', symbol: '$', rateToUSD: 1, markup: 0 });
+  const [loadingMethods, setLoadingMethods] = useState(false);
 
   useEffect(() => {
     loadUser();
@@ -41,10 +42,13 @@ const WalletScreen = ({ navigation }) => {
 
   useEffect(() => {
     if (user) {
-      // Set loading false early to show UI, then fetch data in background
+      // Fetch wallet data immediately
+      fetchWalletData();
+      // Fetch payment methods and currencies in background
+      fetchPaymentMethods();
+      fetchCurrencies();
+      // Set loading false after a short delay to show UI
       setLoading(false);
-      // Fetch all data in parallel for faster loading
-      Promise.all([fetchWalletData(), fetchPaymentMethods(), fetchCurrencies()]);
     }
   }, [user]);
 
@@ -94,13 +98,20 @@ const WalletScreen = ({ navigation }) => {
   };
 
   const fetchPaymentMethods = async () => {
+    setLoadingMethods(true);
     try {
+      console.log('Fetching payment methods from:', `${API_URL}/payment-methods`);
       const res = await fetch(`${API_URL}/payment-methods`);
       const data = await res.json();
-      setPaymentMethods(data.paymentMethods || []);
+      console.log('Payment methods response:', data);
+      // Handle both array and object response
+      const methods = Array.isArray(data) ? data : (data.paymentMethods || []);
+      setPaymentMethods(methods);
+      console.log('Payment methods set:', methods.length);
     } catch (e) {
       console.error('Error fetching payment methods:', e);
     }
+    setLoadingMethods(false);
   };
 
   const handleDeposit = async () => {
@@ -254,7 +265,7 @@ const WalletScreen = ({ navigation }) => {
           <Text style={[styles.balanceAmount, { color: colors.textPrimary }]}>${wallet.balance?.toLocaleString() || '0.00'}</Text>
           
           <View style={styles.actionButtons}>
-            <TouchableOpacity style={[styles.depositBtn, { backgroundColor: colors.accent }]} onPress={() => setShowDepositModal(true)}>
+            <TouchableOpacity style={[styles.depositBtn, { backgroundColor: colors.accent }]} onPress={() => { fetchPaymentMethods(); fetchCurrencies(); setShowDepositModal(true); }}>
               <Ionicons name="arrow-down-circle" size={20} color="#000" />
               <Text style={styles.depositBtnText}>Deposit</Text>
             </TouchableOpacity>
@@ -372,19 +383,34 @@ const WalletScreen = ({ navigation }) => {
             )}
 
             <Text style={[styles.inputLabel, { color: colors.textMuted }]}>Payment Method</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.methodsScroll}>
-              {paymentMethods.map((method) => (
-                <TouchableOpacity
-                  key={method._id}
-                  style={[styles.methodCard, { backgroundColor: colors.bgSecondary, borderColor: colors.border }, selectedMethod?._id === method._id && styles.methodCardActive]}
-                  onPress={() => setSelectedMethod(method)}
-                >
-                  <Text style={[styles.methodName, { color: colors.textPrimary }, selectedMethod?._id === method._id && { color: '#fff' }]}>
-                    {method.type || method.name}
-                  </Text>
+            {loadingMethods ? (
+              <View style={{ padding: 20, alignItems: 'center' }}>
+                <ActivityIndicator size="small" color={colors.accent} />
+                <Text style={{ color: colors.textMuted, marginTop: 8 }}>Loading payment methods...</Text>
+              </View>
+            ) : paymentMethods.length === 0 ? (
+              <View style={{ padding: 20, alignItems: 'center' }}>
+                <Ionicons name="card-outline" size={32} color={colors.textMuted} />
+                <Text style={{ color: colors.textMuted, marginTop: 8 }}>No payment methods available</Text>
+                <TouchableOpacity onPress={fetchPaymentMethods} style={{ marginTop: 8 }}>
+                  <Text style={{ color: colors.accent }}>Tap to retry</Text>
                 </TouchableOpacity>
-              ))}
-            </ScrollView>
+              </View>
+            ) : (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.methodsScroll}>
+                {paymentMethods.map((method) => (
+                  <TouchableOpacity
+                    key={method._id}
+                    style={[styles.methodCard, { backgroundColor: colors.bgSecondary, borderColor: colors.border }, selectedMethod?._id === method._id && styles.methodCardActive]}
+                    onPress={() => setSelectedMethod(method)}
+                  >
+                    <Text style={[styles.methodName, { color: colors.textPrimary }, selectedMethod?._id === method._id && { color: '#fff' }]}>
+                      {method.type || method.name}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            )}
 
             {/* Payment Method Details */}
             {selectedMethod && (

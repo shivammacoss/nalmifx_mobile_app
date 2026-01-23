@@ -55,10 +55,22 @@ const AccountsScreen = ({ navigation, route }) => {
 
   useEffect(() => {
     if (user) {
-      // Set loading false early to show UI, then fetch data in background
-      setLoading(false);
-      // Fetch accounts, challenge accounts, wallet balance, and challenge status in parallel
-      Promise.all([fetchAccounts(), fetchChallengeAccounts(), fetchWalletBalance(), fetchChallengeStatus()]);
+      // Fetch all data and then set loading false
+      const loadData = async () => {
+        try {
+          await Promise.all([
+            fetchAccounts(),
+            fetchChallengeAccounts(),
+            fetchWalletBalance(),
+            fetchChallengeStatus()
+          ]);
+        } catch (e) {
+          console.error('Error loading accounts data:', e);
+        } finally {
+          setLoading(false);
+        }
+      };
+      loadData();
     }
   }, [user]);
   
@@ -205,7 +217,14 @@ const AccountsScreen = ({ navigation, route }) => {
     if (!user) return;
     try {
       console.log('AccountsScreen - Fetching accounts for user:', user._id);
-      const res = await fetch(`${API_URL}/trading-accounts/user/${user._id}`);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+      
+      const res = await fetch(`${API_URL}/trading-accounts/user/${user._id}`, {
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+      
       const data = await res.json();
       console.log('AccountsScreen - Accounts response:', data.accounts?.length || 0, 'accounts');
       // Debug: Log account details
@@ -214,7 +233,11 @@ const AccountsScreen = ({ navigation, route }) => {
       });
       setAccounts(data.accounts || []);
     } catch (e) {
-      console.error('Error fetching accounts:', e);
+      if (e.name === 'AbortError') {
+        console.error('AccountsScreen - Fetch accounts timeout');
+      } else {
+        console.error('Error fetching accounts:', e);
+      }
     }
   };
 
