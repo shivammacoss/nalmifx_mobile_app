@@ -1685,7 +1685,7 @@ const QuotesTab = ({ navigation }) => {
       {/* Watchlist / Markets Toggle */}
       <View style={[styles.marketTabsContainer, { backgroundColor: colors.bgSecondary }]}>
         <TouchableOpacity
-          style={[styles.marketTabBtn, activeTab === 'watchlist' && styles.marketTabBtnActive]}
+          style={[styles.marketTabBtn, activeTab === 'watchlist' && { backgroundColor: colors.accent }]}
           onPress={() => setActiveTab('watchlist')}
         >
           <Text style={[styles.marketTabText, { color: colors.textMuted }, activeTab === 'watchlist' && styles.marketTabTextActive]}>
@@ -1693,7 +1693,7 @@ const QuotesTab = ({ navigation }) => {
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.marketTabBtn, activeTab === 'markets' && styles.marketTabBtnActive]}
+          style={[styles.marketTabBtn, activeTab === 'markets' && { backgroundColor: colors.accent }]}
           onPress={() => setActiveTab('markets')}
         >
           <Text style={[styles.marketTabText, { color: colors.textMuted }, activeTab === 'markets' && styles.marketTabTextActive]}>
@@ -2386,8 +2386,8 @@ const TradeTab = () => {
                       <View style={styles.positionInfo}>
                         <View style={styles.positionSymbolRow}>
                           <Text style={[styles.positionSymbol, { color: colors.textPrimary }]}>{trade.symbol}</Text>
-                          <View style={[styles.sideBadge, { backgroundColor: trade.side === 'BUY' ? '#dc262620' : '#ef444420' }]}>
-                            <Text style={[styles.sideText, { color: trade.side === 'BUY' ? '#dc2626' : '#ef4444' }]}>{trade.side}</Text>
+                          <View style={[styles.sideBadge, { backgroundColor: trade.side === 'BUY' ? '#22c55e20' : '#ef444420' }]}>
+                            <Text style={[styles.sideText, { color: trade.side === 'BUY' ? '#22c55e' : '#ef4444' }]}>{trade.side}</Text>
                           </View>
                         </View>
                         <Text style={[styles.positionDetail, { color: colors.textMuted }]}>{trade.quantity} lots @ {trade.openPrice?.toFixed(5)}</Text>
@@ -2470,7 +2470,7 @@ const TradeTab = () => {
                 <View style={styles.historyHeader}>
                   <View style={styles.historyLeft}>
                     <Text style={[styles.historySymbol, { color: colors.textPrimary }]}>{trade.symbol}</Text>
-                    <Text style={[styles.historySide, { color: trade.side === 'BUY' ? '#dc2626' : '#ef4444' }]}>{trade.side}</Text>
+                    <Text style={[styles.historySide, { color: trade.side === 'BUY' ? '#22c55e' : '#ef4444' }]}>{trade.side}</Text>
                     {trade.closedBy === 'ADMIN' && (
                       <View style={styles.adminBadge}>
                         <Text style={styles.adminBadgeText}>Admin Close</Text>
@@ -2600,7 +2600,7 @@ const TradeTab = () => {
                   </View>
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>Side</Text>
-                    <Text style={[styles.detailValue, { color: detailTrade.side === 'BUY' ? '#dc2626' : '#dc2626' }]}>{detailTrade.side}</Text>
+                    <Text style={[styles.detailValue, { color: detailTrade.side === 'BUY' ? '#22c55e' : '#ef4444' }]}>{detailTrade.side}</Text>
                   </View>
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>Order Type</Text>
@@ -3890,7 +3890,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   marketTabBtnActive: {
-    backgroundColor: '#dc2626',
+    backgroundColor: '#2563eb',
   },
   marketTabText: {
     color: '#666',
@@ -4034,7 +4034,7 @@ const styles = StyleSheet.create({
   leverageValue: { color: '#dc2626', fontSize: 14, fontWeight: 'bold' },
   quickTradeRow: { flexDirection: 'row', gap: 8, marginBottom: 6 },
   quickSellBtn: { flex: 1, backgroundColor: '#ef4444', borderRadius: 8, paddingVertical: 10, alignItems: 'center' },
-  quickBuyBtn: { flex: 1, backgroundColor: '#dc2626', borderRadius: 8, paddingVertical: 10, alignItems: 'center' },
+  quickBuyBtn: { flex: 1, backgroundColor: '#22c55e', borderRadius: 8, paddingVertical: 10, alignItems: 'center' },
   quickBtnLabel: { color: 'rgba(255,255,255,0.8)', fontSize: 11, fontWeight: '600' },
   quickBtnPrice: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
   btnDisabled: { opacity: 0.5 },
@@ -4061,7 +4061,7 @@ const styles = StyleSheet.create({
   slTpInputOrder: { backgroundColor: '#000000', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, color: '#fff', fontSize: 14 },
   finalTradeRow: { flexDirection: 'row', gap: 8, marginTop: 4 },
   finalSellBtn: { flex: 1, backgroundColor: '#ef4444', paddingVertical: 12, borderRadius: 8, alignItems: 'center' },
-  finalBuyBtn: { flex: 1, backgroundColor: '#dc2626', paddingVertical: 12, borderRadius: 8, alignItems: 'center' },
+  finalBuyBtn: { flex: 1, backgroundColor: '#22c55e', paddingVertical: 12, borderRadius: 8, alignItems: 'center' },
   finalBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' },
   spreadBadge: { backgroundColor: '#000000', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4, marginHorizontal: 8, borderWidth: 1, borderColor: '#1a1a1a' },
   spreadText: { color: '#dc2626', fontSize: 10 },
@@ -4250,7 +4250,7 @@ const styles = StyleSheet.create({
   chartVolText: { color: '#fff', fontSize: 14, fontWeight: '600' },
   chartButtons: { flexDirection: 'row', gap: 10, paddingHorizontal: 12 },
   chartSellBtn: { flex: 1, backgroundColor: '#ef4444', paddingVertical: 12, borderRadius: 8, alignItems: 'center' },
-  chartBuyBtn: { flex: 1, backgroundColor: '#dc2626', paddingVertical: 12, borderRadius: 8, alignItems: 'center' },
+  chartBuyBtn: { flex: 1, backgroundColor: '#22c55e', paddingVertical: 12, borderRadius: 8, alignItems: 'center' },
   chartBtnText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
   chartBtnLabel: { color: '#fff', fontSize: 12, fontWeight: '600', opacity: 0.9 },
   chartBtnPrice: { color: '#fff', fontSize: 16, fontWeight: 'bold', marginTop: 2 },
@@ -4284,12 +4284,12 @@ const styles = StyleSheet.create({
   sellPrice: { color: '#fff', fontSize: 15, fontWeight: 'bold' },
   buyPriceBtn: { 
     flex: 1,
-    backgroundColor: '#dc2626',
+    backgroundColor: '#22c55e',
     paddingVertical: 8,
     paddingHorizontal: 12,
     alignItems: 'flex-end',
     borderWidth: 2,
-    borderColor: '#dc2626',
+    borderColor: '#22c55e',
   },
   buyLabel: { color: '#fff', fontSize: 11, fontWeight: '500' },
   buyPrice: { color: '#fff', fontSize: 15, fontWeight: 'bold' },

@@ -264,8 +264,8 @@ const OrderBookScreen = ({ navigation }) => {
         <View style={styles.tradeHeader}>
           <View style={styles.tradeSymbolRow}>
             <Text style={[styles.tradeSymbol, { color: colors.textPrimary }]}>{trade.symbol}</Text>
-            <View style={[styles.sideBadge, { backgroundColor: trade.side === 'BUY' ? '#dc262620' : '#ef444420' }]}>
-              <Text style={[styles.sideText, { color: trade.side === 'BUY' ? '#dc2626' : '#ef4444' }]}>
+            <View style={[styles.sideBadge, { backgroundColor: trade.side === 'BUY' ? '#22c55e20' : '#ef444420' }]}>
+              <Text style={[styles.sideText, { color: trade.side === 'BUY' ? '#22c55e' : '#ef4444' }]}>
                 {trade.side}
               </Text>
             </View>
@@ -316,7 +316,7 @@ const OrderBookScreen = ({ navigation }) => {
       <View style={styles.tradeDetails}>
         <View style={styles.detailRow}>
           <Text style={[styles.detailLabel, { color: colors.textMuted }]}>Side</Text>
-          <Text style={[styles.detailValue, { color: order.side === 'BUY' ? '#dc2626' : '#ef4444' }]}>
+          <Text style={[styles.detailValue, { color: order.side === 'BUY' ? '#22c55e' : '#ef4444' }]}>
             {order.side}
           </Text>
         </View>
@@ -341,8 +341,8 @@ const OrderBookScreen = ({ navigation }) => {
       <View style={styles.tradeHeader}>
         <View style={styles.tradeSymbolRow}>
           <Text style={[styles.tradeSymbol, { color: colors.textPrimary }]}>{trade.symbol}</Text>
-          <View style={[styles.sideBadge, { backgroundColor: trade.side === 'BUY' ? '#dc262620' : '#ef444420' }]}>
-            <Text style={[styles.sideText, { color: trade.side === 'BUY' ? '#dc2626' : '#ef4444' }]}>
+          <View style={[styles.sideBadge, { backgroundColor: trade.side === 'BUY' ? '#22c55e20' : '#ef444420' }]}>
+            <Text style={[styles.sideText, { color: trade.side === 'BUY' ? '#22c55e' : '#ef4444' }]}>
               {trade.side}
             </Text>
           </View>
