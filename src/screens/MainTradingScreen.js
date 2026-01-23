@@ -902,11 +902,11 @@ const HomeTab = ({ navigation }) => {
             </View>
             <View style={[styles.challengeBadge, { 
               backgroundColor: ctx.selectedChallengeAccount.status === 'ACTIVE' ? '#22c55e20' : 
-                              ctx.selectedChallengeAccount.status === 'PASSED' ? '#3b82f620' : '#ef444420' 
+                              ctx.selectedChallengeAccount.status === 'PASSED' ? '#dc262620' : '#ef444420' 
             }]}>
               <Text style={[styles.challengeBadgeText, { 
                 color: ctx.selectedChallengeAccount.status === 'ACTIVE' ? '#22c55e' : 
-                       ctx.selectedChallengeAccount.status === 'PASSED' ? '#3b82f6' : '#ef4444' 
+                       ctx.selectedChallengeAccount.status === 'PASSED' ? '#dc2626' : '#ef4444' 
               }]}>
                 {ctx.selectedChallengeAccount.status}
               </Text>
@@ -3988,7 +3988,7 @@ const styles = StyleSheet.create({
   instrumentSymbol: { color: '#fff', fontSize: 14, fontWeight: '600' },
   instrumentName: { color: '#666', fontSize: 10, marginTop: 2 },
   instrumentPriceCol: { width: 60, alignItems: 'center' },
-  bidPrice: { color: '#3b82f6', fontSize: 13, fontWeight: '500' },
+  bidPrice: { color: '#dc2626', fontSize: 13, fontWeight: '500' },
   askPrice: { color: '#ef4444', fontSize: 13, fontWeight: '500' },
   priceLabel: { color: '#666', fontSize: 9, marginTop: 1 },
   spreadBadgeCol: { paddingHorizontal: 6, paddingVertical: 4, borderRadius: 4, marginHorizontal: 4, minWidth: 32, alignItems: 'center', borderWidth: 1 },
@@ -4034,7 +4034,7 @@ const styles = StyleSheet.create({
   leverageValue: { color: '#dc2626', fontSize: 14, fontWeight: 'bold' },
   quickTradeRow: { flexDirection: 'row', gap: 8, marginBottom: 6 },
   quickSellBtn: { flex: 1, backgroundColor: '#ef4444', borderRadius: 8, paddingVertical: 10, alignItems: 'center' },
-  quickBuyBtn: { flex: 1, backgroundColor: '#3b82f6', borderRadius: 8, paddingVertical: 10, alignItems: 'center' },
+  quickBuyBtn: { flex: 1, backgroundColor: '#dc2626', borderRadius: 8, paddingVertical: 10, alignItems: 'center' },
   quickBtnLabel: { color: 'rgba(255,255,255,0.8)', fontSize: 11, fontWeight: '600' },
   quickBtnPrice: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
   btnDisabled: { opacity: 0.5 },
@@ -4061,7 +4061,7 @@ const styles = StyleSheet.create({
   slTpInputOrder: { backgroundColor: '#000000', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, color: '#fff', fontSize: 14 },
   finalTradeRow: { flexDirection: 'row', gap: 8, marginTop: 4 },
   finalSellBtn: { flex: 1, backgroundColor: '#ef4444', paddingVertical: 12, borderRadius: 8, alignItems: 'center' },
-  finalBuyBtn: { flex: 1, backgroundColor: '#3b82f6', paddingVertical: 12, borderRadius: 8, alignItems: 'center' },
+  finalBuyBtn: { flex: 1, backgroundColor: '#dc2626', paddingVertical: 12, borderRadius: 8, alignItems: 'center' },
   finalBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' },
   spreadBadge: { backgroundColor: '#000000', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4, marginHorizontal: 8, borderWidth: 1, borderColor: '#1a1a1a' },
   spreadText: { color: '#dc2626', fontSize: 10 },
@@ -4071,7 +4071,7 @@ const styles = StyleSheet.create({
   currentSymbol: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
   currentName: { color: '#666', fontSize: 12 },
   priceDisplay: { flexDirection: 'row', gap: 16 },
-  bidPriceMain: { color: '#3b82f6', fontSize: 16, fontWeight: '600' },
+  bidPriceMain: { color: '#dc2626', fontSize: 16, fontWeight: '600' },
   askPriceMain: { color: '#ef4444', fontSize: 16, fontWeight: '600' },
   
   // Account Summary (Trade Tab)
@@ -4241,7 +4241,7 @@ const styles = StyleSheet.create({
   chartPriceBar: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 8, backgroundColor: '#000000' },
   chartPriceItem: { alignItems: 'center' },
   chartPriceLabel: { color: '#666', fontSize: 11, marginBottom: 2 },
-  chartBidPrice: { color: '#3b82f6', fontSize: 16, fontWeight: '600' },
+  chartBidPrice: { color: '#dc2626', fontSize: 16, fontWeight: '600' },
   chartAskPrice: { color: '#ef4444', fontSize: 16, fontWeight: '600' },
   chartSpread: { color: '#fff', fontSize: 14 },
   chartOneClickContainer: { backgroundColor: '#000000', paddingBottom: 16 },
@@ -4250,7 +4250,7 @@ const styles = StyleSheet.create({
   chartVolText: { color: '#fff', fontSize: 14, fontWeight: '600' },
   chartButtons: { flexDirection: 'row', gap: 10, paddingHorizontal: 12 },
   chartSellBtn: { flex: 1, backgroundColor: '#ef4444', paddingVertical: 12, borderRadius: 8, alignItems: 'center' },
-  chartBuyBtn: { flex: 1, backgroundColor: '#3b82f6', paddingVertical: 12, borderRadius: 8, alignItems: 'center' },
+  chartBuyBtn: { flex: 1, backgroundColor: '#dc2626', paddingVertical: 12, borderRadius: 8, alignItems: 'center' },
   chartBtnText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
   chartBtnLabel: { color: '#fff', fontSize: 12, fontWeight: '600', opacity: 0.9 },
   chartBtnPrice: { color: '#fff', fontSize: 16, fontWeight: 'bold', marginTop: 2 },
@@ -4284,12 +4284,12 @@ const styles = StyleSheet.create({
   sellPrice: { color: '#fff', fontSize: 15, fontWeight: 'bold' },
   buyPriceBtn: { 
     flex: 1,
-    backgroundColor: '#3b82f6',
+    backgroundColor: '#dc2626',
     paddingVertical: 8,
     paddingHorizontal: 12,
     alignItems: 'flex-end',
     borderWidth: 2,
-    borderColor: '#3b82f6',
+    borderColor: '#dc2626',
   },
   buyLabel: { color: '#fff', fontSize: 11, fontWeight: '500' },
   buyPrice: { color: '#fff', fontSize: 15, fontWeight: 'bold' },

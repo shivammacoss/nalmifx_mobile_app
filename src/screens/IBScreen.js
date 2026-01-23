@@ -314,8 +314,8 @@ const IBScreen = ({ navigation }) => {
                 <Text style={[styles.statValue, { color: colors.textPrimary }]}>${ibProfile?.ibWalletBalance?.toFixed(2) || '0.00'}</Text>
               </View>
               <View style={[styles.statCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
-                <View style={[styles.statIcon, { backgroundColor: '#3b82f620' }]}>
-                  <Ionicons name="trending-up" size={20} color="#3b82f6" />
+                <View style={[styles.statIcon, { backgroundColor: '#dc262620' }]}>
+                  <Ionicons name="trending-up" size={20} color="#dc2626" />
                 </View>
                 <Text style={[styles.statLabel, { color: colors.textMuted }]}>Total Earned</Text>
                 <Text style={styles.statValue}>${ibProfile?.totalCommissionEarned?.toFixed(2) || '0.00'}</Text>

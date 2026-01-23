@@ -501,8 +501,8 @@ const AccountsScreen = ({ navigation, route }) => {
   const renderChallengeAccount = (account) => (
     <View key={account._id} style={styles.accountCard}>
       <View style={styles.accountHeader}>
-        <View style={[styles.accountIconContainer, { backgroundColor: '#3b82f620' }]}>
-          <Ionicons name="trophy-outline" size={24} color="#3b82f6" />
+        <View style={[styles.accountIconContainer, { backgroundColor: '#dc262620' }]}>
+          <Ionicons name="trophy-outline" size={24} color="#dc2626" />
         </View>
         <View style={styles.accountInfo}>
           <Text style={styles.accountId}>{account.accountId}</Text>
@@ -554,7 +554,7 @@ const AccountsScreen = ({ navigation, route }) => {
 
       {account.status === 'ACTIVE' && (
         <TouchableOpacity 
-          style={[styles.tradeBtn, { backgroundColor: '#3b82f6' }]}
+          style={[styles.tradeBtn, { backgroundColor: '#dc2626' }]}
           onPress={() => selectChallengeAccountForTrading(account)}
         >
           <Ionicons name="trending-up" size={18} color="#fff" />
@@ -567,7 +567,7 @@ const AccountsScreen = ({ navigation, route }) => {
   const getStatusColor = (status) => {
     switch (status) {
       case 'ACTIVE': return '#22c55e';
-      case 'PASSED': return '#3b82f6';
+      case 'PASSED': return '#dc2626';
       case 'FAILED': return '#ef4444';
       case 'FUNDED': return '#dc2626';
       default: return '#888';
@@ -1283,7 +1283,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#3b82f620',
+    backgroundColor: '#dc262620',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -1311,7 +1311,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
   },
   buyBtnSmall: {
-    backgroundColor: '#3b82f6',
+    backgroundColor: '#dc2626',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,

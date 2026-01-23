@@ -174,7 +174,7 @@ const NotificationsScreen = ({ navigation }) => {
   const getNotificationIcon = (type) => {
     switch (type) {
       case 'TRADE_OPEN':
-        return { name: 'arrow-up-circle', color: '#3b82f6', bg: '#3b82f620' };
+        return { name: 'arrow-up-circle', color: '#dc2626', bg: '#dc262620' };
       case 'TRADE_CLOSE':
         return { name: 'checkmark-circle', color: '#22c55e', bg: '#22c55e20' };
       case 'STOP_LOSS_HIT':
@@ -188,7 +188,7 @@ const NotificationsScreen = ({ navigation }) => {
       case 'DEPOSIT':
         return { name: 'wallet', color: '#22c55e', bg: '#22c55e20' };
       case 'WITHDRAWAL':
-        return { name: 'arrow-down-circle', color: '#3b82f6', bg: '#3b82f620' };
+        return { name: 'arrow-down-circle', color: '#dc2626', bg: '#dc262620' };
       case 'COPY_TRADE':
         return { name: 'copy', color: '#06b6d4', bg: '#06b6d420' };
       default:
@@ -341,17 +341,17 @@ const styles = StyleSheet.create({
     marginBottom: 12, 
     paddingHorizontal: 14, 
     paddingVertical: 10, 
-    backgroundColor: '#3b82f620', 
+    backgroundColor: '#dc262620', 
     borderRadius: 10 
   },
   unreadDot: { 
     width: 8, 
     height: 8, 
     borderRadius: 4, 
-    backgroundColor: '#3b82f6', 
+    backgroundColor: '#dc2626', 
     marginRight: 10 
   },
-  unreadText: { color: '#3b82f6', fontSize: 13, fontWeight: '500' },
+  unreadText: { color: '#dc2626', fontSize: 13, fontWeight: '500' },
   
   // Empty State
   emptyState: { alignItems: 'center', paddingVertical: 60, paddingHorizontal: 40 },
@@ -420,7 +420,7 @@ const styles = StyleSheet.create({
     top: 0, 
     bottom: 0, 
     width: 4, 
-    backgroundColor: '#3b82f6',
+    backgroundColor: '#dc2626',
     borderTopLeftRadius: 16,
     borderBottomLeftRadius: 16
   },

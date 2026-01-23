@@ -28,8 +28,8 @@ export const darkTheme = {
   dangerLight: '#ff444420',
   warning: '#fbbf24',
   warningLight: '#fbbf2420',
-  info: '#3b82f6',
-  infoLight: '#3b82f620',
+  info: '#dc2626',
+  infoLight: '#dc262620',
   purple: '#8b5cf6',
   purpleLight: '#8b5cf620',
 };
@@ -61,8 +61,8 @@ export const lightTheme = {
   dangerLight: '#ff444420',
   warning: '#fbbf24',
   warningLight: '#fbbf2420',
-  info: '#3b82f6',
-  infoLight: '#3b82f620',
+  info: '#dc2626',
+  infoLight: '#dc262620',
   purple: '#8b5cf6',
   purpleLight: '#8b5cf620',
 };
