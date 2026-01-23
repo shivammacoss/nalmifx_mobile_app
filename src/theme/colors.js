@@ -50,9 +50,9 @@ export const lightTheme = {
   border: '#e5e5e5',
   borderLight: '#eeeeee',
   
-  // Accent
-  primary: '#d4af37',
-  primaryLight: '#d4af3720',
+  // Accent - Blue for light mode
+  primary: '#2563eb',
+  primaryLight: '#2563eb20',
   
   // Status
   success: '#22c55e',
@@ -61,8 +61,8 @@ export const lightTheme = {
   dangerLight: '#ff444420',
   warning: '#fbbf24',
   warningLight: '#fbbf2420',
-  info: '#dc2626',
-  infoLight: '#dc262620',
+  info: '#2563eb',
+  infoLight: '#2563eb20',
   purple: '#8b5cf6',
   purpleLight: '#8b5cf620',
 };
