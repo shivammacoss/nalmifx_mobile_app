@@ -217,27 +217,12 @@ const AccountsScreen = ({ navigation, route }) => {
     if (!user) return;
     try {
       console.log('AccountsScreen - Fetching accounts for user:', user._id);
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
-      
-      const res = await fetch(`${API_URL}/trading-accounts/user/${user._id}`, {
-        signal: controller.signal
-      });
-      clearTimeout(timeoutId);
-      
+      const res = await fetch(`${API_URL}/trading-accounts/user/${user._id}`);
       const data = await res.json();
       console.log('AccountsScreen - Accounts response:', data.accounts?.length || 0, 'accounts');
-      // Debug: Log account details
-      data.accounts?.forEach(acc => {
-        console.log(`  Account ${acc.accountId}: isDemo=${acc.isDemo}, typeIsDemo=${acc.accountTypeId?.isDemo}, status=${acc.status}`);
-      });
       setAccounts(data.accounts || []);
     } catch (e) {
-      if (e.name === 'AbortError') {
-        console.error('AccountsScreen - Fetch accounts timeout');
-      } else {
-        console.error('Error fetching accounts:', e);
-      }
+      console.warn('AccountsScreen - Error fetching accounts:', e.message);
     }
   };
 
