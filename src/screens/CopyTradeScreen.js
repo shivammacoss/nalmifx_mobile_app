@@ -573,7 +573,7 @@ const CopyTradeScreen = ({ navigation }) => {
                     <View style={styles.subStatBox}>
                       <Text style={styles.subStatLabel}>Open / Closed</Text>
                       <Text style={styles.subStatValue}>
-                        <Text style={{ color: '#3b82f6' }}>{sub.stats?.openTrades || 0}</Text>
+                        <Text style={{ color: '#dc2626' }}>{sub.stats?.openTrades || 0}</Text>
                         {' / '}
                         <Text style={{ color: '#888' }}>{sub.stats?.closedTrades || 0}</Text>
                       </Text>
@@ -596,7 +596,7 @@ const CopyTradeScreen = ({ navigation }) => {
                   
                   <View style={styles.subActions}>
                     <TouchableOpacity style={styles.editBtn} onPress={() => handleEditSubscription(sub)}>
-                      <Ionicons name="settings-outline" size={18} color="#3b82f6" />
+                      <Ionicons name="settings-outline" size={18} color="#dc2626" />
                     </TouchableOpacity>
                     <TouchableOpacity style={styles.pauseBtn} onPress={() => handlePauseResume(sub._id, sub.status)}>
                       <Ionicons name={sub.status === 'ACTIVE' ? 'pause' : 'play'} size={18} color={sub.status === 'ACTIVE' ? '#eab308' : '#22c55e'} />
@@ -652,8 +652,8 @@ const CopyTradeScreen = ({ navigation }) => {
                       </Text>
                     </View>
                   </View>
-                  <View style={[styles.tradeStatusBadge, { backgroundColor: trade.status === 'OPEN' ? '#3b82f620' : '#22c55e20' }]}>
-                    <Text style={[styles.tradeStatusText, { color: trade.status === 'OPEN' ? '#3b82f6' : '#22c55e' }]}>{trade.status}</Text>
+                  <View style={[styles.tradeStatusBadge, { backgroundColor: trade.status === 'OPEN' ? '#dc262620' : '#22c55e20' }]}>
+                    <Text style={[styles.tradeStatusText, { color: trade.status === 'OPEN' ? '#dc2626' : '#22c55e' }]}>{trade.status}</Text>
                   </View>
                 </View>
               ))
@@ -1009,7 +1009,7 @@ const styles = StyleSheet.create({
   
   // Sub Actions
   subActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 12 },
-  editBtn: { width: 36, height: 36, borderRadius: 10, backgroundColor: '#3b82f620', justifyContent: 'center', alignItems: 'center' },
+  editBtn: { width: 36, height: 36, borderRadius: 10, backgroundColor: '#dc262620', justifyContent: 'center', alignItems: 'center' },
   pauseBtn: { width: 36, height: 36, borderRadius: 10, backgroundColor: '#eab30820', justifyContent: 'center', alignItems: 'center' },
   unfollowBtn: { width: 36, height: 36, borderRadius: 10, backgroundColor: '#ef444420', justifyContent: 'center', alignItems: 'center' },
   
