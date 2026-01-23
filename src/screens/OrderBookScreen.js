@@ -69,11 +69,18 @@ const OrderBookScreen = ({ navigation }) => {
 
   const fetchAccounts = async () => {
     try {
+      console.log('OrderBookScreen - Fetching accounts for user:', user._id);
       const res = await fetch(`${API_URL}/trading-accounts/user/${user._id}`);
       const data = await res.json();
-      setAccounts(data.accounts || []);
+      console.log('OrderBookScreen - Accounts response:', data.accounts?.length || 0, 'accounts');
+      const accountsList = data.accounts || [];
+      setAccounts(accountsList);
+      // If no accounts loaded, try again after a short delay
+      if (accountsList.length === 0) {
+        setTimeout(fetchAccounts, 2000);
+      }
     } catch (e) {
-      console.error('Error fetching accounts:', e);
+      console.warn('Error fetching accounts:', e.message);
     }
   };
 
@@ -409,15 +416,21 @@ const OrderBookScreen = ({ navigation }) => {
           >
             <Text style={[styles.accountOptionText, { color: colors.textPrimary }]}>All Accounts</Text>
           </TouchableOpacity>
-          {accounts.map(acc => (
-            <TouchableOpacity 
-              key={acc._id}
-              style={[styles.accountOption, { borderBottomColor: colors.border }, selectedAccount === acc._id && styles.accountOptionActive]}
-              onPress={() => { setSelectedAccount(acc._id); setShowAccountPicker(false); }}
-            >
-              <Text style={[styles.accountOptionText, { color: colors.textPrimary }]}>{acc.accountId}</Text>
-            </TouchableOpacity>
-          ))}
+          {accounts.length === 0 ? (
+            <View style={[styles.accountOption, { borderBottomColor: colors.border }]}>
+              <Text style={[styles.accountOptionText, { color: colors.textMuted }]}>Loading accounts...</Text>
+            </View>
+          ) : (
+            accounts.map(acc => (
+              <TouchableOpacity 
+                key={acc._id}
+                style={[styles.accountOption, { borderBottomColor: colors.border }, selectedAccount === acc._id && styles.accountOptionActive]}
+                onPress={() => { setSelectedAccount(acc._id); setShowAccountPicker(false); }}
+              >
+                <Text style={[styles.accountOptionText, { color: colors.textPrimary }]}>{acc.accountId} - ${acc.balance?.toFixed(2) || '0.00'}</Text>
+              </TouchableOpacity>
+            ))
+          )}
         </View>
       )}
 
