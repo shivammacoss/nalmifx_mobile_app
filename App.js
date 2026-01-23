@@ -3,6 +3,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider } from './src/context/AuthContext';
 import { ThemeProvider, useTheme } from './src/context/ThemeContext';
 
@@ -19,6 +20,7 @@ import AccountsScreen from './src/screens/AccountsScreen';
 import OrderBookScreen from './src/screens/OrderBookScreen';
 import InstructionsScreen from './src/screens/InstructionsScreen';
 import NotificationsScreen from './src/screens/NotificationsScreen';
+import ForgotPasswordScreen from './src/screens/ForgotPasswordScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -49,6 +51,7 @@ const AppContent = () => {
         <Stack.Screen name="OrderBook" component={OrderBookScreen} />
         <Stack.Screen name="Instructions" component={InstructionsScreen} />
         <Stack.Screen name="Notifications" component={NotificationsScreen} />
+        <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
       </Stack.Navigator>
     </>
   );
@@ -57,9 +60,10 @@ const AppContent = () => {
 export default function App() {
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#000000' }}>
-      <ThemeProvider>
-        <AuthProvider>
-          <NavigationContainer
+      <SafeAreaProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            <NavigationContainer
             theme={{
               dark: true,
               colors: {
@@ -79,9 +83,10 @@ export default function App() {
             }}
           >
             <AppContent />
-          </NavigationContainer>
-        </AuthProvider>
-      </ThemeProvider>
+            </NavigationContainer>
+          </AuthProvider>
+        </ThemeProvider>
+      </SafeAreaProvider>
     </GestureHandlerRootView>
   );
 }

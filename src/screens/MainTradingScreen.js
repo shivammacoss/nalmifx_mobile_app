@@ -20,6 +20,7 @@ import {
   Linking,
   Image,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Swipeable, GestureHandlerRootView } from 'react-native-gesture-handler';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
@@ -3436,6 +3437,10 @@ const MoreTab = ({ navigation }) => {
 // Tab Navigator with theme support
 const ThemedTabNavigator = () => {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
+  
+  // Calculate bottom padding for navigation bar
+  const bottomPadding = Math.max(insets.bottom, 10);
   
   return (
     <Tab.Navigator
@@ -3444,8 +3449,8 @@ const ThemedTabNavigator = () => {
         tabBarStyle: { 
           backgroundColor: colors.tabBarBg, 
           borderTopColor: colors.border, 
-          height: 60, 
-          paddingBottom: 8 
+          height: 60 + bottomPadding, 
+          paddingBottom: bottomPadding 
         },
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textMuted,
