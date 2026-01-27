@@ -9,9 +9,11 @@ import {
   Modal,
   ActivityIndicator,
   Alert,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
+import * as ImagePicker from 'expo-image-picker';
 import { API_URL } from '../config';
 import { useTheme } from '../context/ThemeContext';
 
@@ -21,7 +23,18 @@ const ProfileScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [showKycModal, setShowKycModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [kycData, setKycData] = useState({
+    documentType: 'PASSPORT',
+    documentNumber: '',
+    frontImage: null,
+    backImage: null,
+    selfieImage: null,
+  });
+  const [kycStatus, setKycStatus] = useState(null);
+  const [profileImage, setProfileImage] = useState(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
   
   const [editData, setEditData] = useState({
     firstName: '',
@@ -37,7 +50,27 @@ const ProfileScreen = ({ navigation }) => {
 
   useEffect(() => {
     loadUser();
+    fetchKycStatus();
   }, []);
+
+  const fetchKycStatus = async () => {
+    try {
+      const userData = await SecureStore.getItemAsync('user');
+      if (userData) {
+        const parsed = JSON.parse(userData);
+        const token = await SecureStore.getItemAsync('token');
+        const res = await fetch(`${API_URL}/kyc/status/${parsed._id}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (data.kyc) {
+          setKycStatus(data.kyc);
+        }
+      }
+    } catch (e) {
+      console.error('Error fetching KYC status:', e);
+    }
+  };
 
   const loadUser = async () => {
     try {
@@ -45,6 +78,7 @@ const ProfileScreen = ({ navigation }) => {
       if (userData) {
         const parsed = JSON.parse(userData);
         setUser(parsed);
+        setProfileImage(parsed.profileImage || null);
         setEditData({
           firstName: parsed.firstName || '',
           lastName: parsed.lastName || '',
@@ -55,6 +89,93 @@ const ProfileScreen = ({ navigation }) => {
       console.error('Error loading user:', e);
     }
     setLoading(false);
+  };
+
+  const pickProfileImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Required', 'Please grant camera roll permissions to upload profile image');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (!result.canceled) {
+      uploadProfileImage(result.assets[0].uri);
+    }
+  };
+
+  const takeProfilePhoto = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Required', 'Please grant camera permissions to take photo');
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (!result.canceled) {
+      uploadProfileImage(result.assets[0].uri);
+    }
+  };
+
+  const uploadProfileImage = async (imageUri) => {
+    setUploadingImage(true);
+    try {
+      const token = await SecureStore.getItemAsync('token');
+      const formData = new FormData();
+      formData.append('userId', user._id);
+      formData.append('profileImage', {
+        uri: imageUri,
+        type: 'image/jpeg',
+        name: 'profile.jpg',
+      });
+
+      const res = await fetch(`${API_URL}/upload/profile-image`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'multipart/form-data',
+        },
+        body: formData,
+      });
+      const data = await res.json();
+      if (data.success || data.profileImage) {
+        const imageUrl = data.profileImage || imageUri;
+        setProfileImage(imageUrl);
+        const updatedUser = { ...user, profileImage: imageUrl };
+        await SecureStore.setItemAsync('user', JSON.stringify(updatedUser));
+        setUser(updatedUser);
+        Alert.alert('Success', 'Profile image updated successfully');
+      } else {
+        Alert.alert('Error', data.message || 'Failed to upload image');
+      }
+    } catch (e) {
+      console.error('Upload error:', e);
+      Alert.alert('Error', 'Failed to upload profile image');
+    }
+    setUploadingImage(false);
+  };
+
+  const showImageOptions = () => {
+    Alert.alert(
+      'Update Profile Photo',
+      'Choose an option',
+      [
+        { text: 'Take Photo', onPress: takeProfilePhoto },
+        { text: 'Choose from Gallery', onPress: pickProfileImage },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
   };
 
   const handleUpdateProfile = async () => {
@@ -91,6 +212,128 @@ const ProfileScreen = ({ navigation }) => {
       Alert.alert('Error', 'Failed to update profile');
     }
     setIsSubmitting(false);
+  };
+
+  const pickImage = async (type) => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Required', 'Please grant camera roll permissions to upload documents');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: type === 'selfie' ? [1, 1] : [4, 3],
+      quality: 0.8,
+    });
+
+    if (!result.canceled) {
+      setKycData({ ...kycData, [type]: result.assets[0].uri });
+    }
+  };
+
+  const takePhoto = async (type) => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Required', 'Please grant camera permissions to take photos');
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      aspect: type === 'selfieImage' ? [1, 1] : [4, 3],
+      quality: 0.8,
+    });
+
+    if (!result.canceled) {
+      setKycData({ ...kycData, [type]: result.assets[0].uri });
+    }
+  };
+
+  const handleSubmitKyc = async () => {
+    if (!kycData.documentNumber) {
+      Alert.alert('Error', 'Please enter document number');
+      return;
+    }
+    if (!kycData.frontImage) {
+      Alert.alert('Error', 'Please upload front side of document');
+      return;
+    }
+    if (!kycData.selfieImage) {
+      Alert.alert('Error', 'Please upload a selfie with document');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const token = await SecureStore.getItemAsync('token');
+      
+      // Convert images to base64
+      const convertToBase64 = async (uri) => {
+        if (!uri) return null;
+        const response = await fetch(uri);
+        const blob = await response.blob();
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result);
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+      };
+
+      const frontImageBase64 = await convertToBase64(kycData.frontImage);
+      const backImageBase64 = kycData.backImage ? await convertToBase64(kycData.backImage) : null;
+      const selfieImageBase64 = await convertToBase64(kycData.selfieImage);
+
+      const res = await fetch(`${API_URL}/kyc/submit`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: user._id,
+          documentType: kycData.documentType,
+          documentNumber: kycData.documentNumber,
+          frontImage: frontImageBase64,
+          backImage: backImageBase64,
+          selfieImage: selfieImageBase64,
+        }),
+      });
+      const data = await res.json();
+      if (data.success || data.kyc) {
+        Alert.alert('Success', 'KYC documents submitted successfully. Please wait for verification.');
+        setShowKycModal(false);
+        fetchKycStatus();
+      } else {
+        Alert.alert('Error', data.message || 'Failed to submit KYC');
+      }
+    } catch (e) {
+      console.error('KYC submit error:', e);
+      Alert.alert('Error', 'Failed to submit KYC documents');
+    }
+    setIsSubmitting(false);
+  };
+
+  const getKycStatusColor = () => {
+    if (!kycStatus) return '#ef4444';
+    switch (kycStatus.status) {
+      case 'approved': return '#22c55e';
+      case 'pending': return '#eab308';
+      case 'rejected': return '#ef4444';
+      default: return '#ef4444';
+    }
+  };
+
+  const getKycStatusText = () => {
+    if (!kycStatus) return 'Not Submitted';
+    switch (kycStatus.status) {
+      case 'approved': return 'Verified';
+      case 'pending': return 'Pending Review';
+      case 'rejected': return 'Rejected';
+      default: return 'Not Submitted';
+    }
   };
 
   const handleChangePassword = async () => {
@@ -158,11 +401,24 @@ const ProfileScreen = ({ navigation }) => {
       <ScrollView>
         {/* Profile Card */}
         <View style={[styles.profileCard, { backgroundColor: colors.bgCard }]}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>
-              {user?.firstName?.[0]}{user?.lastName?.[0]}
-            </Text>
-          </View>
+          <TouchableOpacity style={styles.avatarContainer} onPress={showImageOptions} disabled={uploadingImage}>
+            {profileImage ? (
+              <Image source={{ uri: profileImage }} style={styles.avatarImage} />
+            ) : (
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>
+                  {user?.firstName?.[0]}{user?.lastName?.[0]}
+                </Text>
+              </View>
+            )}
+            <View style={[styles.avatarEditBtn, { backgroundColor: colors.accent }]}>
+              {uploadingImage ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Ionicons name="camera" size={14} color="#fff" />
+              )}
+            </View>
+          </TouchableOpacity>
           <Text style={[styles.userName, { color: colors.textPrimary }]}>{user?.firstName} {user?.lastName}</Text>
           <Text style={[styles.userEmail, { color: colors.textMuted }]}>{user?.email}</Text>
         </View>
@@ -194,6 +450,73 @@ const ProfileScreen = ({ navigation }) => {
             </View>
             <Text style={[styles.infoValue, { color: colors.textPrimary }]}>{user?.phone || 'Not set'}</Text>
           </View>
+        </View>
+
+        {/* KYC Section - Mandatory */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>KYC Verification</Text>
+            <View style={[styles.mandatoryBadge, { backgroundColor: '#ef444420' }]}>
+              <Text style={styles.mandatoryText}>Mandatory</Text>
+            </View>
+          </View>
+          
+          <TouchableOpacity 
+            style={[styles.kycCard, { backgroundColor: colors.bgCard, borderColor: getKycStatusColor() }]}
+            onPress={() => {
+              if (kycStatus?.status !== 'approved' && kycStatus?.status !== 'pending') {
+                setShowKycModal(true);
+              }
+            }}
+          >
+            <View style={styles.kycHeader}>
+              <View style={[styles.kycIconContainer, { backgroundColor: `${getKycStatusColor()}20` }]}>
+                <Ionicons 
+                  name={kycStatus?.status === 'approved' ? 'shield-checkmark' : kycStatus?.status === 'pending' ? 'time' : 'shield-outline'} 
+                  size={28} 
+                  color={getKycStatusColor()} 
+                />
+              </View>
+              <View style={styles.kycInfo}>
+                <Text style={[styles.kycTitle, { color: colors.textPrimary }]}>Identity Verification</Text>
+                <View style={styles.kycStatusRow}>
+                  <View style={[styles.kycStatusDot, { backgroundColor: getKycStatusColor() }]} />
+                  <Text style={[styles.kycStatusText, { color: getKycStatusColor() }]}>{getKycStatusText()}</Text>
+                </View>
+              </View>
+              {kycStatus?.status !== 'approved' && kycStatus?.status !== 'pending' && (
+                <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+              )}
+            </View>
+            
+            {!kycStatus && (
+              <View style={[styles.kycWarning, { backgroundColor: '#ef444410' }]}>
+                <Ionicons name="warning" size={16} color="#ef4444" />
+                <Text style={styles.kycWarningText}>Complete KYC to access all features including withdrawals</Text>
+              </View>
+            )}
+            
+            {kycStatus?.status === 'rejected' && kycStatus?.rejectionReason && (
+              <View style={[styles.kycWarning, { backgroundColor: '#ef444410' }]}>
+                <Ionicons name="close-circle" size={16} color="#ef4444" />
+                <Text style={styles.kycWarningText}>Reason: {kycStatus.rejectionReason}</Text>
+              </View>
+            )}
+            
+            {kycStatus?.status === 'approved' && (
+              <View style={[styles.kycSuccess, { backgroundColor: '#22c55e10' }]}>
+                <Ionicons name="checkmark-circle" size={16} color="#22c55e" />
+                <Text style={styles.kycSuccessText}>Your identity has been verified</Text>
+              </View>
+            )}
+            
+            {kycStatus?.status === 'pending' && (
+              <View style={[styles.kycPending, { backgroundColor: '#eab30810' }]}>
+                <Ionicons name="hourglass" size={16} color="#eab308" />
+                <Text style={styles.kycPendingText}>Your documents are under review (1-2 business days)</Text>
+              </View>
+            )}
+          </TouchableOpacity>
         </View>
 
         {/* Actions */}
@@ -331,6 +654,148 @@ const ProfileScreen = ({ navigation }) => {
           </View>
         </View>
       </Modal>
+
+      {/* KYC Modal */}
+      <Modal visible={showKycModal} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <ScrollView style={styles.kycModalScroll}>
+            <View style={[styles.kycModalContent, { backgroundColor: colors.bgCard }]}>
+              <View style={styles.modalHeader}>
+                <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>KYC Verification</Text>
+                <TouchableOpacity onPress={() => setShowKycModal(false)}>
+                  <Ionicons name="close" size={24} color={colors.textMuted} />
+                </TouchableOpacity>
+              </View>
+
+              <Text style={[styles.kycModalSubtitle, { color: colors.textMuted }]}>
+                Please provide your identity documents for verification
+              </Text>
+
+              {/* Document Type */}
+              <Text style={[styles.inputLabel, { color: colors.textMuted }]}>Document Type</Text>
+              <View style={styles.documentTypeRow}>
+                {['PASSPORT', 'NATIONAL_ID', 'DRIVING_LICENSE'].map((type) => (
+                  <TouchableOpacity
+                    key={type}
+                    style={[
+                      styles.documentTypeBtn,
+                      { backgroundColor: colors.bgSecondary, borderColor: colors.border },
+                      kycData.documentType === type && { backgroundColor: `${colors.accent}20`, borderColor: colors.accent }
+                    ]}
+                    onPress={() => setKycData({ ...kycData, documentType: type })}
+                  >
+                    <Text style={[
+                      styles.documentTypeText,
+                      { color: colors.textMuted },
+                      kycData.documentType === type && { color: colors.accent }
+                    ]}>
+                      {type === 'PASSPORT' ? 'Passport' : type === 'NATIONAL_ID' ? 'Aadhar Card' : 'License'}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* Document Number */}
+              <Text style={[styles.inputLabel, { color: colors.textMuted }]}>Document Number *</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: colors.bgSecondary, borderWidth: 1, borderColor: colors.border, color: colors.textPrimary }]}
+                value={kycData.documentNumber}
+                onChangeText={(text) => setKycData({ ...kycData, documentNumber: text })}
+                placeholder="Enter document number"
+                placeholderTextColor={colors.textMuted}
+              />
+
+              {/* Front Image */}
+              <Text style={[styles.inputLabel, { color: colors.textMuted }]}>Document Front Side *</Text>
+              <View style={styles.imageUploadRow}>
+                <TouchableOpacity 
+                  style={[styles.imageUploadBtn, { backgroundColor: colors.bgSecondary, borderColor: colors.border }]}
+                  onPress={() => pickImage('frontImage')}
+                >
+                  {kycData.frontImage ? (
+                    <Image source={{ uri: kycData.frontImage }} style={styles.uploadedImage} />
+                  ) : (
+                    <>
+                      <Ionicons name="image-outline" size={32} color={colors.textMuted} />
+                      <Text style={[styles.uploadText, { color: colors.textMuted }]}>Gallery</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={[styles.imageUploadBtn, { backgroundColor: colors.bgSecondary, borderColor: colors.border }]}
+                  onPress={() => takePhoto('frontImage')}
+                >
+                  <Ionicons name="camera-outline" size={32} color={colors.textMuted} />
+                  <Text style={[styles.uploadText, { color: colors.textMuted }]}>Camera</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Back Image */}
+              <Text style={[styles.inputLabel, { color: colors.textMuted }]}>Document Back Side (Optional)</Text>
+              <View style={styles.imageUploadRow}>
+                <TouchableOpacity 
+                  style={[styles.imageUploadBtn, { backgroundColor: colors.bgSecondary, borderColor: colors.border }]}
+                  onPress={() => pickImage('backImage')}
+                >
+                  {kycData.backImage ? (
+                    <Image source={{ uri: kycData.backImage }} style={styles.uploadedImage} />
+                  ) : (
+                    <>
+                      <Ionicons name="image-outline" size={32} color={colors.textMuted} />
+                      <Text style={[styles.uploadText, { color: colors.textMuted }]}>Gallery</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={[styles.imageUploadBtn, { backgroundColor: colors.bgSecondary, borderColor: colors.border }]}
+                  onPress={() => takePhoto('backImage')}
+                >
+                  <Ionicons name="camera-outline" size={32} color={colors.textMuted} />
+                  <Text style={[styles.uploadText, { color: colors.textMuted }]}>Camera</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Selfie */}
+              <Text style={[styles.inputLabel, { color: colors.textMuted }]}>Selfie with Document *</Text>
+              <Text style={[styles.inputHint, { color: colors.textMuted }]}>Hold your document next to your face</Text>
+              <View style={styles.imageUploadRow}>
+                <TouchableOpacity 
+                  style={[styles.imageUploadBtn, { backgroundColor: colors.bgSecondary, borderColor: colors.border }]}
+                  onPress={() => pickImage('selfieImage')}
+                >
+                  {kycData.selfieImage ? (
+                    <Image source={{ uri: kycData.selfieImage }} style={styles.uploadedImage} />
+                  ) : (
+                    <>
+                      <Ionicons name="image-outline" size={32} color={colors.textMuted} />
+                      <Text style={[styles.uploadText, { color: colors.textMuted }]}>Gallery</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={[styles.imageUploadBtn, { backgroundColor: colors.bgSecondary, borderColor: colors.border }]}
+                  onPress={() => takePhoto('selfieImage')}
+                >
+                  <Ionicons name="camera-outline" size={32} color={colors.textMuted} />
+                  <Text style={[styles.uploadText, { color: colors.textMuted }]}>Camera</Text>
+                </TouchableOpacity>
+              </View>
+
+              <TouchableOpacity 
+                style={[styles.submitBtn, { backgroundColor: colors.accent }, isSubmitting && styles.submitBtnDisabled]} 
+                onPress={handleSubmitKyc}
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={[styles.submitBtnText, { color: '#fff' }]}>Submit for Verification</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -344,8 +809,11 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 18, fontWeight: 'bold' },
   
   profileCard: { alignItems: 'center', padding: 30, margin: 16, borderRadius: 20 },
-  avatar: { width: 80, height: 80, borderRadius: 40, backgroundColor: '#dc2626', justifyContent: 'center', alignItems: 'center' },
+  avatarContainer: { position: 'relative' },
+  avatar: { width: 90, height: 90, borderRadius: 45, backgroundColor: '#dc2626', justifyContent: 'center', alignItems: 'center' },
+  avatarImage: { width: 90, height: 90, borderRadius: 45 },
   avatarText: { color: '#000', fontSize: 28, fontWeight: 'bold' },
+  avatarEditBtn: { position: 'absolute', bottom: 0, right: 0, width: 28, height: 28, borderRadius: 14, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#000' },
   userName: { fontSize: 22, fontWeight: 'bold', marginTop: 16 },
   userEmail: { color: '#666', fontSize: 14, marginTop: 4 },
   
@@ -373,6 +841,42 @@ const styles = StyleSheet.create({
   submitBtn: { backgroundColor: '#dc2626', padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 24 },
   submitBtnDisabled: { opacity: 0.6 },
   submitBtnText: { color: '#000', fontSize: 16, fontWeight: 'bold' },
+  
+  // KYC Section Styles
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
+  mandatoryBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
+  mandatoryText: { color: '#ef4444', fontSize: 11, fontWeight: '600' },
+  
+  kycCard: { borderRadius: 16, padding: 16, borderWidth: 2 },
+  kycHeader: { flexDirection: 'row', alignItems: 'center' },
+  kycIconContainer: { width: 56, height: 56, borderRadius: 16, justifyContent: 'center', alignItems: 'center' },
+  kycInfo: { flex: 1, marginLeft: 14 },
+  kycTitle: { fontSize: 16, fontWeight: '600' },
+  kycStatusRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
+  kycStatusDot: { width: 8, height: 8, borderRadius: 4, marginRight: 6 },
+  kycStatusText: { fontSize: 13, fontWeight: '500' },
+  
+  kycWarning: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 10, marginTop: 12, gap: 8 },
+  kycWarningText: { color: '#ef4444', fontSize: 12, flex: 1 },
+  kycSuccess: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 10, marginTop: 12, gap: 8 },
+  kycSuccessText: { color: '#22c55e', fontSize: 12, flex: 1 },
+  kycPending: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 10, marginTop: 12, gap: 8 },
+  kycPendingText: { color: '#eab308', fontSize: 12, flex: 1 },
+  
+  // KYC Modal Styles
+  kycModalScroll: { flex: 1, marginTop: 60 },
+  kycModalContent: { borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: 40, minHeight: '100%' },
+  kycModalSubtitle: { fontSize: 14, marginBottom: 8 },
+  
+  documentTypeRow: { flexDirection: 'row', gap: 8 },
+  documentTypeBtn: { flex: 1, paddingVertical: 12, borderRadius: 10, alignItems: 'center', borderWidth: 1 },
+  documentTypeText: { fontSize: 12, fontWeight: '500' },
+  
+  imageUploadRow: { flexDirection: 'row', gap: 12, marginTop: 8 },
+  imageUploadBtn: { flex: 1, height: 120, borderRadius: 12, borderWidth: 1, borderStyle: 'dashed', justifyContent: 'center', alignItems: 'center' },
+  uploadedImage: { width: '100%', height: '100%', borderRadius: 12 },
+  uploadText: { fontSize: 12, marginTop: 8 },
+  inputHint: { fontSize: 11, marginBottom: 4 },
 });
 
 export default ProfileScreen;

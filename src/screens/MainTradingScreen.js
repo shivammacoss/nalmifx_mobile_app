@@ -597,7 +597,8 @@ const TradingProvider = ({ children, navigation, route }) => {
     totalFloatingPnl: 0,
     realTimeEquity: 0,
     realTimeFreeMargin: 0,
-    totalUsedMargin: 0
+    totalUsedMargin: 0,
+    todayPnl: 0
   });
 
   // Update real-time values when prices or trades change
@@ -605,13 +606,24 @@ const TradingProvider = ({ children, navigation, route }) => {
     const balance = accountSummary.balance || 0;
     const credit = accountSummary.credit || 0;
     
+    // Calculate today's realized PnL from closed trades
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayClosedPnl = tradeHistory
+      .filter(trade => {
+        const closedAt = new Date(trade.closedAt || trade.updatedAt);
+        return closedAt >= today && trade.status === 'CLOSED';
+      })
+      .reduce((sum, trade) => sum + (trade.pnl || 0), 0);
+
     // If no open trades, use values directly from account summary
     if (openTrades.length === 0) {
       setRealTimeValues({
         totalFloatingPnl: 0,
         realTimeEquity: balance + credit,
         realTimeFreeMargin: balance + credit,
-        totalUsedMargin: 0
+        totalUsedMargin: 0,
+        todayPnl: Math.round(todayClosedPnl * 100) / 100
       });
       return;
     }
@@ -632,11 +644,12 @@ const TradingProvider = ({ children, navigation, route }) => {
       totalFloatingPnl: Math.round(totalPnl * 100) / 100,
       realTimeEquity: Math.round(equity * 100) / 100,
       realTimeFreeMargin: Math.round(freeMargin * 100) / 100,
-      totalUsedMargin: Math.round(totalMargin * 100) / 100
+      totalUsedMargin: Math.round(totalMargin * 100) / 100,
+      todayPnl: Math.round((todayClosedPnl + totalPnl) * 100) / 100
     });
-  }, [livePrices, openTrades, accountSummary]);
+  }, [livePrices, openTrades, accountSummary, tradeHistory]);
 
-  const { totalFloatingPnl, realTimeEquity, realTimeFreeMargin, totalUsedMargin } = realTimeValues;
+  const { totalFloatingPnl, realTimeEquity, realTimeFreeMargin, totalUsedMargin, todayPnl } = realTimeValues;
 
   const logout = async () => {
     await SecureStore.deleteItemAsync('user');
@@ -685,7 +698,7 @@ const TradingProvider = ({ children, navigation, route }) => {
       challengeAccounts, selectedChallengeAccount, setSelectedChallengeAccount,
       isChallengeMode, setIsChallengeMode,
       openTrades, pendingOrders, tradeHistory, instruments, livePrices, adminSpreads,
-      loading, accountSummary, totalFloatingPnl, realTimeEquity, realTimeFreeMargin,
+      loading, accountSummary, totalFloatingPnl, realTimeEquity, realTimeFreeMargin, todayPnl,
       fetchOpenTrades, fetchPendingOrders, fetchTradeHistory, fetchAccountSummary,
       refreshAccounts, calculatePnl, logout, setInstruments,
       marketWatchNews, loadingNews, fetchMarketWatchNews,
@@ -1040,6 +1053,22 @@ const HomeTab = ({ navigation }) => {
               <Text style={[styles.balanceLabel, { color: colors.textMuted }]}>Free Margin</Text>
               <Text style={[styles.freeMarginValue, { color: colors.primary }]}>
                 ${ctx.realTimeFreeMargin?.toFixed(2) || '0.00'}
+              </Text>
+            </View>
+          </View>
+
+          {/* Today's P&L Row */}
+          <View style={[styles.pnlRow, { borderTopColor: colors.border }]}>
+            <View>
+              <Text style={[styles.balanceLabel, { color: colors.textMuted }]}>Today's P&L</Text>
+              <Text style={[styles.pnlValue, { color: ctx.todayPnl >= 0 ? colors.success : colors.error }]}>
+                {ctx.todayPnl >= 0 ? '+' : ''}${ctx.todayPnl?.toFixed(2) || '0.00'}
+              </Text>
+            </View>
+            <View style={{ alignItems: 'flex-end' }}>
+              <Text style={[styles.balanceLabel, { color: colors.textMuted }]}>Used Margin</Text>
+              <Text style={[styles.freeMarginValue, { color: colors.textMuted }]}>
+                ${ctx.accountSummary?.usedMargin?.toFixed(2) || '0.00'}
               </Text>
             </View>
           </View>
@@ -2315,6 +2344,12 @@ const TradeTab = () => {
             {ctx.totalFloatingPnl.toFixed(2)}
           </Text>
         </View>
+        <View style={styles.summaryRow}>
+          <Text style={[styles.summaryLabel, { color: colors.textMuted }]}>Today's P&L</Text>
+          <Text style={[styles.summaryValue, { color: ctx.todayPnl >= 0 ? '#22c55e' : '#ef4444' }]}>
+            {ctx.todayPnl >= 0 ? '+' : ''}{ctx.todayPnl?.toFixed(2) || '0.00'}
+          </Text>
+        </View>
       </View>
 
       {/* Trade Tabs - Positions / Pending / History */}
@@ -2954,13 +2989,34 @@ const HistoryTab = () => {
 };
 
 // CHART TAB - Full screen TradingView chart with multiple chart tabs
-const ChartTab = () => {
+const ChartTab = ({ route }) => {
   const ctx = React.useContext(TradingContext);
   const { colors, isDark } = useTheme();
   const toast = useToast();
-  const [chartTabs, setChartTabs] = useState([{ symbol: 'XAUUSD', id: 1 }]);
+  
+  // Get initial symbol from route params or default to XAUUSD
+  const initialSymbol = route?.params?.symbol || 'XAUUSD';
+  const [chartTabs, setChartTabs] = useState([{ symbol: initialSymbol, id: 1 }]);
   const [activeTabId, setActiveTabId] = useState(1);
   const [showSymbolPicker, setShowSymbolPicker] = useState(false);
+  
+  // Handle symbol change from navigation params
+  React.useEffect(() => {
+    if (route?.params?.symbol) {
+      const symbol = route.params.symbol;
+      // Check if symbol already exists in tabs
+      const existingTab = chartTabs.find(t => t.symbol === symbol);
+      if (existingTab) {
+        // Switch to existing tab
+        setActiveTabId(existingTab.id);
+      } else {
+        // Add new tab with this symbol
+        const newId = Math.max(...chartTabs.map(t => t.id)) + 1;
+        setChartTabs(prev => [...prev, { symbol, id: newId }]);
+        setActiveTabId(newId);
+      }
+    }
+  }, [route?.params?.symbol]);
   const [showOrderPanel, setShowOrderPanel] = useState(false);
   const [orderSide, setOrderSide] = useState('BUY');
   const [volume, setVolume] = useState(0.01);
@@ -3162,18 +3218,8 @@ const ChartTab = () => {
       "show_popup_button": true,
       "popup_width": "1000",
       "popup_height": "650",
-      "studies": [
-        "Volume@tv-basicstudies",
-        "MASimple@tv-basicstudies",
-        "RSI@tv-basicstudies",
-        "BB@tv-basicstudies"
-      ],
-      "studies_overrides": {
-        "moving average.length": 20,
-        "moving average.linewidth": 2,
-        "relative strength index.length": 14,
-        "bollinger bands.length": 20
-      },
+      "studies": [],
+      "studies_overrides": {},
       "overrides": {
         "mainSeriesProperties.showPriceLine": true,
         "mainSeriesProperties.highLowAvgPrice.highLowPriceLinesVisible": true,

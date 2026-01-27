@@ -35,6 +35,15 @@ const WalletScreen = ({ navigation }) => {
   const [currencies, setCurrencies] = useState([]);
   const [selectedCurrency, setSelectedCurrency] = useState({ currency: 'USD', symbol: '$', rateToUSD: 1, markup: 0 });
   const [loadingMethods, setLoadingMethods] = useState(false);
+  
+  // Withdrawal bank/UPI details
+  const [bankDetails, setBankDetails] = useState({
+    bankName: '',
+    accountNumber: '',
+    ifscCode: '',
+    accountHolderName: '',
+  });
+  const [upiId, setUpiId] = useState('');
 
   useEffect(() => {
     loadUser();
@@ -183,8 +192,41 @@ const WalletScreen = ({ navigation }) => {
       return;
     }
 
+    // Validate bank details if Bank Transfer selected
+    if (selectedMethod.type === 'Bank Transfer') {
+      if (!bankDetails.accountHolderName || !bankDetails.bankName || !bankDetails.accountNumber || !bankDetails.ifscCode) {
+        Alert.alert('Error', 'Please fill all bank details');
+        return;
+      }
+    }
+
+    // Validate UPI if UPI selected
+    if (selectedMethod.type === 'UPI') {
+      if (!upiId) {
+        Alert.alert('Error', 'Please enter UPI ID');
+        return;
+      }
+    }
+
     setIsSubmitting(true);
     try {
+      // Build bank account details based on payment method
+      let bankAccountDetails = null;
+      if (selectedMethod.type === 'Bank Transfer') {
+        bankAccountDetails = {
+          type: 'Bank',
+          bankName: bankDetails.bankName,
+          accountNumber: bankDetails.accountNumber,
+          ifscCode: bankDetails.ifscCode,
+          accountHolderName: bankDetails.accountHolderName,
+        };
+      } else if (selectedMethod.type === 'UPI') {
+        bankAccountDetails = {
+          type: 'UPI',
+          upiId: upiId,
+        };
+      }
+
       const res = await fetch(`${API_URL}/wallet/withdraw`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -192,6 +234,7 @@ const WalletScreen = ({ navigation }) => {
           userId: user._id,
           amount: parseFloat(amount),
           paymentMethod: selectedMethod.type || selectedMethod.name,
+          bankAccountDetails,
         })
       });
       const data = await res.json();
@@ -200,6 +243,8 @@ const WalletScreen = ({ navigation }) => {
         setShowWithdrawModal(false);
         setAmount('');
         setSelectedMethod(null);
+        setBankDetails({ bankName: '', accountNumber: '', ifscCode: '', accountHolderName: '' });
+        setUpiId('');
         fetchWalletData();
       } else {
         Alert.alert('Error', data.message || 'Failed to submit withdrawal');
@@ -523,6 +568,64 @@ const WalletScreen = ({ navigation }) => {
                 </TouchableOpacity>
               ))}
             </ScrollView>
+
+            {/* Bank Transfer Input Fields */}
+            {selectedMethod?.type === 'Bank Transfer' && (
+              <View style={{ marginTop: 8 }}>
+                <Text style={[styles.inputLabel, { color: colors.textMuted }]}>Account Holder Name *</Text>
+                <TextInput
+                  style={[styles.input, { backgroundColor: colors.bgSecondary, borderColor: colors.border, color: colors.textPrimary }]}
+                  value={bankDetails.accountHolderName}
+                  onChangeText={(text) => setBankDetails({ ...bankDetails, accountHolderName: text })}
+                  placeholder="Enter account holder name"
+                  placeholderTextColor={colors.textMuted}
+                />
+                
+                <Text style={[styles.inputLabel, { color: colors.textMuted }]}>Bank Name *</Text>
+                <TextInput
+                  style={[styles.input, { backgroundColor: colors.bgSecondary, borderColor: colors.border, color: colors.textPrimary }]}
+                  value={bankDetails.bankName}
+                  onChangeText={(text) => setBankDetails({ ...bankDetails, bankName: text })}
+                  placeholder="Enter bank name"
+                  placeholderTextColor={colors.textMuted}
+                />
+                
+                <Text style={[styles.inputLabel, { color: colors.textMuted }]}>Account Number *</Text>
+                <TextInput
+                  style={[styles.input, { backgroundColor: colors.bgSecondary, borderColor: colors.border, color: colors.textPrimary }]}
+                  value={bankDetails.accountNumber}
+                  onChangeText={(text) => setBankDetails({ ...bankDetails, accountNumber: text })}
+                  placeholder="Enter account number"
+                  placeholderTextColor={colors.textMuted}
+                  keyboardType="numeric"
+                />
+                
+                <Text style={[styles.inputLabel, { color: colors.textMuted }]}>IFSC Code *</Text>
+                <TextInput
+                  style={[styles.input, { backgroundColor: colors.bgSecondary, borderColor: colors.border, color: colors.textPrimary }]}
+                  value={bankDetails.ifscCode}
+                  onChangeText={(text) => setBankDetails({ ...bankDetails, ifscCode: text.toUpperCase() })}
+                  placeholder="Enter IFSC code"
+                  placeholderTextColor={colors.textMuted}
+                  autoCapitalize="characters"
+                />
+              </View>
+            )}
+
+            {/* UPI Input Field */}
+            {selectedMethod?.type === 'UPI' && (
+              <View style={{ marginTop: 8 }}>
+                <Text style={[styles.inputLabel, { color: colors.textMuted }]}>UPI ID *</Text>
+                <TextInput
+                  style={[styles.input, { backgroundColor: colors.bgSecondary, borderColor: colors.border, color: colors.textPrimary }]}
+                  value={upiId}
+                  onChangeText={setUpiId}
+                  placeholder="Enter UPI ID (e.g., name@upi)"
+                  placeholderTextColor={colors.textMuted}
+                  autoCapitalize="none"
+                />
+              </View>
+            )}
 
             <TouchableOpacity 
               style={[styles.submitBtn, { backgroundColor: colors.accent }, isSubmitting && styles.submitBtnDisabled]} 

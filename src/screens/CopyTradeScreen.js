@@ -500,7 +500,7 @@ const CopyTradeScreen = ({ navigation }) => {
                       </View>
                       <View style={styles.masterInfo}>
                         <Text style={[styles.masterName, { color: colors.textPrimary }]}>{master.displayName}</Text>
-                        <Text style={styles.masterFollowers}>{master.stats?.activeFollowers || 0} followers</Text>
+                        <Text style={[styles.masterFollowers, { color: colors.textMuted }]}>{master.stats?.activeFollowers || 0} followers</Text>
                       </View>
                       {following && (
                         <View style={styles.followingBadge}>
@@ -511,19 +511,19 @@ const CopyTradeScreen = ({ navigation }) => {
                     
                     <View style={styles.statsGrid}>
                       <View style={styles.statBox}>
-                        <Text style={styles.statBoxLabel}>Win Rate</Text>
-                        <Text style={styles.statBoxValue}>{master.stats?.winRate?.toFixed(1) || 0}%</Text>
+                        <Text style={[styles.statBoxLabel, { color: colors.textMuted }]}>Win Rate</Text>
+                        <Text style={[styles.statBoxValue, { color: colors.textPrimary }]}>{master.stats?.winRate?.toFixed(1) || 0}%</Text>
                       </View>
                       <View style={styles.statBox}>
-                        <Text style={styles.statBoxLabel}>Total Trades</Text>
-                        <Text style={styles.statBoxValue}>{master.stats?.totalTrades || 0}</Text>
+                        <Text style={[styles.statBoxLabel, { color: colors.textMuted }]}>Total Trades</Text>
+                        <Text style={[styles.statBoxValue, { color: colors.textPrimary }]}>{master.stats?.totalTrades || 0}</Text>
                       </View>
                       <View style={styles.statBox}>
-                        <Text style={styles.statBoxLabel}>Commission</Text>
-                        <Text style={styles.statBoxValue}>{master.approvedCommissionPercentage || 0}%</Text>
+                        <Text style={[styles.statBoxLabel, { color: colors.textMuted }]}>Commission</Text>
+                        <Text style={[styles.statBoxValue, { color: colors.textPrimary }]}>{master.approvedCommissionPercentage || 0}%</Text>
                       </View>
                       <View style={styles.statBox}>
-                        <Text style={styles.statBoxLabel}>Profit</Text>
+                        <Text style={[styles.statBoxLabel, { color: colors.textMuted }]}>Profit</Text>
                         <Text style={[styles.statBoxValue, { color: '#22c55e' }]}>${master.stats?.totalProfitGenerated?.toFixed(2) || '0.00'}</Text>
                       </View>
                     </View>
@@ -563,14 +563,14 @@ const CopyTradeScreen = ({ navigation }) => {
               </View>
             ) : (
               mySubscriptions.map((sub) => (
-                <View key={sub._id} style={styles.subscriptionCard}>
+                <View key={sub._id} style={[styles.subscriptionCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
                   <View style={styles.subHeader}>
-                    <View style={styles.masterAvatar}>
-                      <Text style={styles.avatarText}>{sub.masterId?.displayName?.charAt(0)}</Text>
+                    <View style={[styles.masterAvatar, { backgroundColor: `${colors.accent}30` }]}>
+                      <Text style={[styles.avatarText, { color: colors.accent }]}>{sub.masterId?.displayName?.charAt(0)}</Text>
                     </View>
                     <View style={styles.subInfo}>
-                      <Text style={styles.subMasterName}>{sub.masterId?.displayName}</Text>
-                      <Text style={styles.subCopyMode}>{getCopyModeLabel(sub.copyMode, sub.copyValue)}</Text>
+                      <Text style={[styles.subMasterName, { color: colors.textPrimary }]}>{sub.masterId?.displayName}</Text>
+                      <Text style={[styles.subCopyMode, { color: colors.textMuted }]}>{getCopyModeLabel(sub.copyMode, sub.copyValue)}</Text>
                     </View>
                     <View style={[
                       styles.statusBadge,
@@ -585,13 +585,13 @@ const CopyTradeScreen = ({ navigation }) => {
                     </View>
                   </View>
                   
-                  <View style={styles.subStatsGrid}>
+                  <View style={[styles.subStatsGrid, { borderTopColor: colors.border }]}>
                     <View style={styles.subStatBox}>
-                      <Text style={styles.subStatLabel}>Total Trades</Text>
-                      <Text style={styles.subStatValue}>{sub.stats?.totalCopiedTrades || 0}</Text>
+                      <Text style={[styles.subStatLabel, { color: colors.textMuted }]}>Total Trades</Text>
+                      <Text style={[styles.subStatValue, { color: colors.textPrimary }]}>{sub.stats?.totalCopiedTrades || 0}</Text>
                     </View>
                     <View style={styles.subStatBox}>
-                      <Text style={styles.subStatLabel}>Open / Closed</Text>
+                      <Text style={[styles.subStatLabel, { color: colors.textMuted }]}>Open / Closed</Text>
                       <Text style={styles.subStatValue}>
                         <Text style={{ color: '#dc2626' }}>{sub.stats?.openTrades || 0}</Text>
                         {' / '}
@@ -599,15 +599,15 @@ const CopyTradeScreen = ({ navigation }) => {
                       </Text>
                     </View>
                     <View style={styles.subStatBox}>
-                      <Text style={styles.subStatLabel}>Profit</Text>
+                      <Text style={[styles.subStatLabel, { color: colors.textMuted }]}>Profit</Text>
                       <Text style={[styles.subStatValue, { color: '#22c55e' }]}>+${(sub.stats?.totalProfit || 0).toFixed(2)}</Text>
                     </View>
                     <View style={styles.subStatBox}>
-                      <Text style={styles.subStatLabel}>Loss</Text>
+                      <Text style={[styles.subStatLabel, { color: colors.textMuted }]}>Loss</Text>
                       <Text style={[styles.subStatValue, { color: '#ef4444' }]}>-${(sub.stats?.totalLoss || 0).toFixed(2)}</Text>
                     </View>
                     <View style={styles.subStatBox}>
-                      <Text style={styles.subStatLabel}>Net P&L</Text>
+                      <Text style={[styles.subStatLabel, { color: colors.textMuted }]}>Net P&L</Text>
                       <Text style={[styles.subStatValue, { color: (sub.stats?.netPnl || 0) >= 0 ? '#22c55e' : '#ef4444' }]}>
                         {(sub.stats?.netPnl || 0) >= 0 ? '+' : ''}${(sub.stats?.netPnl || 0).toFixed(2)}
                       </Text>
@@ -642,11 +642,11 @@ const CopyTradeScreen = ({ navigation }) => {
               </View>
             ) : (
               myCopyTrades.map((trade) => (
-                <View key={trade._id} style={styles.tradeCard}>
+                <View key={trade._id} style={[styles.tradeCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
                   <View style={styles.tradeHeader}>
                     <View>
-                      <Text style={styles.tradeSymbol}>{trade.symbol}</Text>
-                      <Text style={styles.tradeMaster}>From: {trade.masterId?.displayName || '-'}</Text>
+                      <Text style={[styles.tradeSymbol, { color: colors.textPrimary }]}>{trade.symbol}</Text>
+                      <Text style={[styles.tradeMaster, { color: colors.textMuted }]}>From: {trade.masterId?.displayName || '-'}</Text>
                     </View>
                     <View style={[styles.tradeSideBadge, { backgroundColor: trade.side === 'BUY' ? '#22c55e20' : '#ef444420' }]}>
                       <Text style={[styles.tradeSideText, { color: trade.side === 'BUY' ? '#22c55e' : '#ef4444' }]}>{trade.side}</Text>
@@ -654,19 +654,19 @@ const CopyTradeScreen = ({ navigation }) => {
                   </View>
                   <View style={styles.tradeDetails}>
                     <View style={styles.tradeDetailItem}>
-                      <Text style={styles.tradeDetailLabel}>Lots</Text>
-                      <Text style={styles.tradeDetailValue}>{trade.followerLotSize}</Text>
+                      <Text style={[styles.tradeDetailLabel, { color: colors.textMuted }]}>Lots</Text>
+                      <Text style={[styles.tradeDetailValue, { color: colors.textPrimary }]}>{trade.followerLotSize}</Text>
                     </View>
                     <View style={styles.tradeDetailItem}>
-                      <Text style={styles.tradeDetailLabel}>Open</Text>
-                      <Text style={styles.tradeDetailValue}>{trade.followerOpenPrice?.toFixed(5)}</Text>
+                      <Text style={[styles.tradeDetailLabel, { color: colors.textMuted }]}>Open</Text>
+                      <Text style={[styles.tradeDetailValue, { color: colors.textPrimary }]}>{trade.followerOpenPrice?.toFixed(5)}</Text>
                     </View>
                     <View style={styles.tradeDetailItem}>
-                      <Text style={styles.tradeDetailLabel}>Close</Text>
-                      <Text style={styles.tradeDetailValue}>{trade.followerClosePrice?.toFixed(5) || '-'}</Text>
+                      <Text style={[styles.tradeDetailLabel, { color: colors.textMuted }]}>Close</Text>
+                      <Text style={[styles.tradeDetailValue, { color: colors.textPrimary }]}>{trade.followerClosePrice?.toFixed(5) || '-'}</Text>
                     </View>
                     <View style={styles.tradeDetailItem}>
-                      <Text style={styles.tradeDetailLabel}>P/L</Text>
+                      <Text style={[styles.tradeDetailLabel, { color: colors.textMuted }]}>P/L</Text>
                       <Text style={[styles.tradeDetailValue, { color: (trade.followerPnl || 0) >= 0 ? '#22c55e' : '#ef4444' }]}>
                         {(trade.followerPnl || 0) >= 0 ? '+' : ''}${(trade.followerPnl || 0).toFixed(2)}
                       </Text>
@@ -692,15 +692,15 @@ const CopyTradeScreen = ({ navigation }) => {
               </View>
             ) : (
               myFollowers.map((follower) => (
-                <View key={follower._id} style={styles.followerCard}>
+                <View key={follower._id} style={[styles.followerCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
                   <View style={styles.followerHeader}>
-                    <View style={styles.masterAvatar}>
-                      <Text style={styles.avatarText}>{follower.followerUserId?.firstName?.charAt(0)}</Text>
+                    <View style={[styles.masterAvatar, { backgroundColor: `${colors.accent}30` }]}>
+                      <Text style={[styles.avatarText, { color: colors.accent }]}>{follower.followerUserId?.firstName?.charAt(0)}</Text>
                     </View>
                     <View style={styles.followerInfo}>
-                      <Text style={styles.followerName}>{follower.followerUserId?.firstName} {follower.followerUserId?.lastName}</Text>
-                      <Text style={styles.followerEmail}>{follower.followerUserId?.email}</Text>
-                      <Text style={styles.followerCopyMode}>{getCopyModeLabel(follower.copyMode, follower.copyValue)}</Text>
+                      <Text style={[styles.followerName, { color: colors.textPrimary }]}>{follower.followerUserId?.firstName} {follower.followerUserId?.lastName}</Text>
+                      <Text style={[styles.followerEmail, { color: colors.textMuted }]}>{follower.followerUserId?.email}</Text>
+                      <Text style={[styles.followerCopyMode, { color: colors.textMuted }]}>{getCopyModeLabel(follower.copyMode, follower.copyValue)}</Text>
                     </View>
                     <View style={[
                       styles.statusBadge,
@@ -724,33 +724,33 @@ const CopyTradeScreen = ({ navigation }) => {
       {/* Follow Modal */}
       <Modal visible={showFollowModal} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, { backgroundColor: colors.bgSecondary }]}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Follow Master</Text>
+              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Follow Master</Text>
               <TouchableOpacity onPress={() => setShowFollowModal(false)}>
-                <Ionicons name="close" size={24} color="#fff" />
+                <Ionicons name="close" size={24} color={colors.textPrimary} />
               </TouchableOpacity>
             </View>
 
             {selectedMaster && (
-              <View style={styles.selectedMaster}>
-                <View style={styles.masterAvatar}>
-                  <Text style={styles.avatarText}>{selectedMaster.displayName?.charAt(0)}</Text>
+              <View style={[styles.selectedMaster, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+                <View style={[styles.masterAvatar, { backgroundColor: `${colors.accent}30` }]}>
+                  <Text style={[styles.avatarText, { color: colors.accent }]}>{selectedMaster.displayName?.charAt(0)}</Text>
                 </View>
-                <Text style={styles.selectedMasterName}>{selectedMaster.displayName}</Text>
+                <Text style={[styles.selectedMasterName, { color: colors.textPrimary }]}>{selectedMaster.displayName}</Text>
               </View>
             )}
 
-            <Text style={styles.inputLabel}>Select Your Account</Text>
+            <Text style={[styles.inputLabel, { color: colors.textMuted }]}>Select Your Account</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.accountsScroll}>
               {accounts.map((acc) => (
                 <TouchableOpacity
                   key={acc._id}
-                  style={[styles.accountCard, selectedAccount === acc._id && { backgroundColor: colors.accent, borderColor: colors.accent }]}
+                  style={[styles.accountCard, { backgroundColor: colors.bgCard, borderColor: colors.border }, selectedAccount === acc._id && { backgroundColor: colors.accent, borderColor: colors.accent }]}
                   onPress={() => setSelectedAccount(acc._id)}
                 >
-                  <Text style={[styles.accountNumber, selectedAccount === acc._id && { color: '#000' }]}>{acc.accountId}</Text>
-                  <Text style={[styles.accountBalance, selectedAccount === acc._id && { color: '#000' }]}>${(acc.balance || 0).toLocaleString()}</Text>
+                  <Text style={[styles.accountNumber, { color: colors.textPrimary }, selectedAccount === acc._id && { color: '#000' }]}>{acc.accountId}</Text>
+                  <Text style={[styles.accountBalance, { color: colors.textMuted }, selectedAccount === acc._id && { color: '#000' }]}>${(acc.balance || 0).toLocaleString()}</Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -760,26 +760,26 @@ const CopyTradeScreen = ({ navigation }) => {
               {['FIXED_LOT', 'MULTIPLIER'].map(mode => (
                 <TouchableOpacity
                   key={mode}
-                  style={[styles.copyModeBtn, copyMode === mode && { backgroundColor: `${colors.accent}20`, borderColor: colors.accent }]}
+                  style={[styles.copyModeBtn, { backgroundColor: colors.bgCard, borderColor: colors.border }, copyMode === mode && { backgroundColor: `${colors.accent}20`, borderColor: colors.accent }]}
                   onPress={() => setCopyMode(mode)}
                 >
-                  <Text style={[styles.copyModeText, copyMode === mode && { color: colors.accent }]}>
+                  <Text style={[styles.copyModeText, { color: colors.textMuted }, copyMode === mode && { color: colors.accent }]}>
                     {mode === 'FIXED_LOT' ? 'Fixed Lot' : 'Multiplier'}
                   </Text>
                 </TouchableOpacity>
               ))}
             </View>
 
-            <Text style={styles.inputLabel}>{copyMode === 'FIXED_LOT' ? 'Lot Size' : 'Multiplier'}</Text>
+            <Text style={[styles.inputLabel, { color: colors.textMuted }]}>{copyMode === 'FIXED_LOT' ? 'Lot Size' : 'Multiplier'}</Text>
             <TextInput
-              style={styles.input}
+              style={[styles.input, { backgroundColor: colors.bgCard, borderColor: colors.border, color: colors.textPrimary }]}
               value={copyValue}
               onChangeText={setCopyValue}
               placeholder={copyMode === 'FIXED_LOT' ? '0.01' : '1'}
               placeholderTextColor="#666"
               keyboardType="numeric"
             />
-            <Text style={styles.inputHint}>
+            <Text style={[styles.inputHint, { color: colors.textMuted }]}>
               {copyMode === 'FIXED_LOT' ? 'Fixed lot size for all copied trades' : '1 = Same size, 0.5 = Half, 2 = Double'}
             </Text>
 
@@ -801,26 +801,26 @@ const CopyTradeScreen = ({ navigation }) => {
       {/* Become Master Modal */}
       <Modal visible={showMasterModal} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, { backgroundColor: colors.bgSecondary }]}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Become a Master</Text>
+              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Become a Master</Text>
               <TouchableOpacity onPress={() => setShowMasterModal(false)}>
-                <Ionicons name="close" size={24} color="#fff" />
+                <Ionicons name="close" size={24} color={colors.textPrimary} />
               </TouchableOpacity>
             </View>
 
-            <Text style={styles.inputLabel}>Display Name *</Text>
+            <Text style={[styles.inputLabel, { color: colors.textMuted }]}>Display Name *</Text>
             <TextInput
-              style={styles.input}
+              style={[styles.input, { backgroundColor: colors.bgCard, borderColor: colors.border, color: colors.textPrimary }]}
               value={masterForm.displayName}
               onChangeText={(text) => setMasterForm(prev => ({ ...prev, displayName: text }))}
               placeholder="Your trading name"
               placeholderTextColor="#666"
             />
 
-            <Text style={styles.inputLabel}>Description</Text>
+            <Text style={[styles.inputLabel, { color: colors.textMuted }]}>Description</Text>
             <TextInput
-              style={[styles.input, { height: 80, textAlignVertical: 'top' }]}
+              style={[styles.input, { height: 80, textAlignVertical: 'top', backgroundColor: colors.bgCard, borderColor: colors.border, color: colors.textPrimary }]}
               value={masterForm.description}
               onChangeText={(text) => setMasterForm(prev => ({ ...prev, description: text }))}
               placeholder="Describe your trading strategy..."
@@ -828,30 +828,30 @@ const CopyTradeScreen = ({ navigation }) => {
               multiline
             />
 
-            <Text style={styles.inputLabel}>Trading Account</Text>
+            <Text style={[styles.inputLabel, { color: colors.textMuted }]}>Trading Account</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.accountsScroll}>
               {accounts.map((acc) => (
                 <TouchableOpacity
                   key={acc._id}
-                  style={[styles.accountCard, masterForm.tradingAccountId === acc._id && { backgroundColor: colors.accent, borderColor: colors.accent }]}
+                  style={[styles.accountCard, { backgroundColor: colors.bgCard, borderColor: colors.border }, masterForm.tradingAccountId === acc._id && { backgroundColor: colors.accent, borderColor: colors.accent }]}
                   onPress={() => setMasterForm(prev => ({ ...prev, tradingAccountId: acc._id }))}
                 >
-                  <Text style={[styles.accountNumber, masterForm.tradingAccountId === acc._id && { color: '#000' }]}>{acc.accountId}</Text>
-                  <Text style={[styles.accountBalance, masterForm.tradingAccountId === acc._id && { color: '#000' }]}>${(acc.balance || 0).toLocaleString()}</Text>
+                  <Text style={[styles.accountNumber, { color: colors.textPrimary }, masterForm.tradingAccountId === acc._id && { color: '#000' }]}>{acc.accountId}</Text>
+                  <Text style={[styles.accountBalance, { color: colors.textMuted }, masterForm.tradingAccountId === acc._id && { color: '#000' }]}>${(acc.balance || 0).toLocaleString()}</Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
 
-            <Text style={styles.inputLabel}>Requested Commission (%)</Text>
+            <Text style={[styles.inputLabel, { color: colors.textMuted }]}>Requested Commission (%)</Text>
             <TextInput
-              style={styles.input}
+              style={[styles.input, { backgroundColor: colors.bgCard, borderColor: colors.border, color: colors.textPrimary }]}
               value={masterForm.requestedCommissionPercentage}
               onChangeText={(text) => setMasterForm(prev => ({ ...prev, requestedCommissionPercentage: text }))}
               placeholder="10"
               placeholderTextColor="#666"
               keyboardType="numeric"
             />
-            <Text style={styles.inputHint}>Commission you'll earn from followers' profits</Text>
+            <Text style={[styles.inputHint, { color: colors.textMuted }]}>Commission you'll earn from followers' profits</Text>
 
             <TouchableOpacity 
               style={[styles.submitBtn, { backgroundColor: colors.accent }, applyingMaster && styles.submitBtnDisabled]} 
@@ -871,41 +871,41 @@ const CopyTradeScreen = ({ navigation }) => {
       {/* Edit Subscription Modal */}
       <Modal visible={showEditModal} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, { backgroundColor: colors.bgSecondary }]}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Edit Subscription</Text>
+              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Edit Subscription</Text>
               <TouchableOpacity onPress={() => setShowEditModal(false)}>
-                <Ionicons name="close" size={24} color="#fff" />
+                <Ionicons name="close" size={24} color={colors.textPrimary} />
               </TouchableOpacity>
             </View>
 
             {editingSubscription && (
-              <View style={styles.selectedMaster}>
-                <View style={styles.masterAvatar}>
-                  <Text style={styles.avatarText}>{editingSubscription.masterId?.displayName?.charAt(0)}</Text>
+              <View style={[styles.selectedMaster, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+                <View style={[styles.masterAvatar, { backgroundColor: `${colors.accent}30` }]}>
+                  <Text style={[styles.avatarText, { color: colors.accent }]}>{editingSubscription.masterId?.displayName?.charAt(0)}</Text>
                 </View>
-                <Text style={styles.selectedMasterName}>{editingSubscription.masterId?.displayName}</Text>
+                <Text style={[styles.selectedMasterName, { color: colors.textPrimary }]}>{editingSubscription.masterId?.displayName}</Text>
               </View>
             )}
 
-            <Text style={styles.inputLabel}>Copy Mode</Text>
+            <Text style={[styles.inputLabel, { color: colors.textMuted }]}>Copy Mode</Text>
             <View style={styles.copyModeRow}>
               {['FIXED_LOT', 'MULTIPLIER'].map(mode => (
                 <TouchableOpacity
                   key={mode}
-                  style={[styles.copyModeBtn, editCopyMode === mode && styles.copyModeBtnActive]}
+                  style={[styles.copyModeBtn, { backgroundColor: colors.bgCard, borderColor: colors.border }, editCopyMode === mode && { backgroundColor: `${colors.accent}20`, borderColor: colors.accent }]}
                   onPress={() => setEditCopyMode(mode)}
                 >
-                  <Text style={[styles.copyModeText, editCopyMode === mode && styles.copyModeTextActive]}>
+                  <Text style={[styles.copyModeText, { color: colors.textMuted }, editCopyMode === mode && { color: colors.accent }]}>
                     {mode === 'FIXED_LOT' ? 'Fixed Lot' : 'Multiplier'}
                   </Text>
                 </TouchableOpacity>
               ))}
             </View>
 
-            <Text style={styles.inputLabel}>{editCopyMode === 'FIXED_LOT' ? 'Lot Size' : 'Multiplier'}</Text>
+            <Text style={[styles.inputLabel, { color: colors.textMuted }]}>{editCopyMode === 'FIXED_LOT' ? 'Lot Size' : 'Multiplier'}</Text>
             <TextInput
-              style={styles.input}
+              style={[styles.input, { backgroundColor: colors.bgCard, borderColor: colors.border, color: colors.textPrimary }]}
               value={editCopyValue}
               onChangeText={setEditCopyValue}
               placeholder={editCopyMode === 'FIXED_LOT' ? '0.01' : '1'}
@@ -914,14 +914,14 @@ const CopyTradeScreen = ({ navigation }) => {
             />
 
             <TouchableOpacity 
-              style={[styles.submitBtn, isSubmitting && styles.submitBtnDisabled]} 
+              style={[styles.submitBtn, { backgroundColor: colors.accent }, isSubmitting && styles.submitBtnDisabled]} 
               onPress={handleSaveSubscription}
               disabled={isSubmitting}
             >
               {isSubmitting ? (
-                <ActivityIndicator color="#000" />
+                <ActivityIndicator color="#fff" />
               ) : (
-                <Text style={styles.submitBtnText}>Save Changes</Text>
+                <Text style={[styles.submitBtnText, { color: '#fff' }]}>Save Changes</Text>
               )}
             </TouchableOpacity>
           </View>

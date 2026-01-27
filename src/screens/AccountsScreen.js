@@ -40,11 +40,22 @@ const AccountsScreen = ({ navigation, route }) => {
   const [walletBalance, setWalletBalance] = useState(0);
   const [showTransferModal, setShowTransferModal] = useState(false);
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
+  const [showWithdrawRequestModal, setShowWithdrawRequestModal] = useState(false);
   const [showAccountTransferModal, setShowAccountTransferModal] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState(null);
   const [targetAccount, setTargetAccount] = useState(null);
   const [transferAmount, setTransferAmount] = useState('');
   const [isTransferring, setIsTransferring] = useState(false);
+  
+  // Withdrawal request states
+  const [withdrawMethod, setWithdrawMethod] = useState('Bank'); // 'Bank', 'UPI'
+  const [bankDetails, setBankDetails] = useState({
+    bankName: '',
+    accountNumber: '',
+    ifscCode: '',
+    accountHolderName: '',
+  });
+  const [upiId, setUpiId] = useState('');
   
   // Handle incoming route params for deposit/withdraw action
   const [pendingAction, setPendingAction] = useState(null);
@@ -352,6 +363,73 @@ const AccountsScreen = ({ navigation, route }) => {
     setIsTransferring(false);
   };
 
+  // Submit withdrawal request to admin (from wallet to bank/UPI)
+  const handleWithdrawRequest = async () => {
+    if (!transferAmount || parseFloat(transferAmount) <= 0) {
+      Alert.alert('Error', 'Please enter a valid amount');
+      return;
+    }
+    if (parseFloat(transferAmount) > walletBalance) {
+      Alert.alert('Error', 'Insufficient wallet balance');
+      return;
+    }
+
+    // Validate payment details
+    if (withdrawMethod === 'Bank') {
+      if (!bankDetails.bankName || !bankDetails.accountNumber || !bankDetails.ifscCode || !bankDetails.accountHolderName) {
+        Alert.alert('Error', 'Please fill all bank details');
+        return;
+      }
+    } else if (withdrawMethod === 'UPI') {
+      if (!upiId) {
+        Alert.alert('Error', 'Please enter UPI ID');
+        return;
+      }
+    }
+
+    setIsTransferring(true);
+    try {
+      const bankAccountDetails = withdrawMethod === 'Bank' 
+        ? {
+            type: 'Bank',
+            bankName: bankDetails.bankName,
+            accountNumber: bankDetails.accountNumber,
+            ifscCode: bankDetails.ifscCode,
+            accountHolderName: bankDetails.accountHolderName,
+          }
+        : {
+            type: 'UPI',
+            upiId: upiId,
+          };
+
+      const res = await fetch(`${API_URL}/wallet/withdraw`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user._id,
+          amount: parseFloat(transferAmount),
+          paymentMethod: withdrawMethod === 'Bank' ? 'Bank Transfer' : 'UPI',
+          bankAccountDetails,
+        })
+      });
+      const data = await res.json();
+      
+      if (res.ok) {
+        Alert.alert('Success', 'Withdrawal request submitted! Admin will process it shortly.');
+        setShowWithdrawRequestModal(false);
+        setTransferAmount('');
+        setBankDetails({ bankName: '', accountNumber: '', ifscCode: '', accountHolderName: '' });
+        setUpiId('');
+        fetchWalletBalance();
+      } else {
+        Alert.alert('Error', data.message || 'Withdrawal request failed');
+      }
+    } catch (e) {
+      Alert.alert('Error', 'Error submitting withdrawal request');
+    }
+    setIsTransferring(false);
+  };
+
   // Transfer between accounts
   const handleAccountToAccountTransfer = async () => {
     if (!transferAmount || parseFloat(transferAmount) <= 0) {
@@ -628,6 +706,26 @@ const AccountsScreen = ({ navigation, route }) => {
         style={styles.content}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
       >
+        {/* Wallet Card */}
+        <View style={[styles.walletCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+          <View style={styles.walletHeader}>
+            <View style={[styles.walletIconContainer, { backgroundColor: colors.accent + '20' }]}>
+              <Ionicons name="wallet-outline" size={24} color={colors.accent} />
+            </View>
+            <View style={styles.walletInfo}>
+              <Text style={[styles.walletTitle, { color: colors.textMuted }]}>Main Wallet</Text>
+              <Text style={[styles.walletBalanceText, { color: colors.textPrimary }]}>${walletBalance.toFixed(2)}</Text>
+            </View>
+          </View>
+          <TouchableOpacity 
+            style={[styles.walletWithdrawBtn, { backgroundColor: colors.accent }]}
+            onPress={() => { setTransferAmount(''); setShowWithdrawRequestModal(true); }}
+          >
+            <Ionicons name="arrow-up-circle-outline" size={18} color="#fff" />
+            <Text style={styles.walletWithdrawBtnText}>Withdraw</Text>
+          </TouchableOpacity>
+        </View>
+
         {activeTab === 'challenge' ? (
           <>
             {/* Buy Challenge Button */}
@@ -940,6 +1038,126 @@ const AccountsScreen = ({ navigation, route }) => {
               )}
             </TouchableOpacity>
           </View>
+        </View>
+      </Modal>
+
+      {/* Withdrawal Request Modal - To Bank/UPI */}
+      <Modal visible={showWithdrawRequestModal} animationType="slide" transparent onRequestClose={() => setShowWithdrawRequestModal(false)}>
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity style={styles.modalBackdrop} onPress={() => setShowWithdrawRequestModal(false)} />
+          <ScrollView style={{ flex: 1 }} contentContainerStyle={{ justifyContent: 'flex-end', flexGrow: 1 }}>
+            <View style={[styles.transferModalContent, { backgroundColor: colors.bgCard, maxHeight: '90%' }]}>
+              <View style={styles.modalHeader}>
+                <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Withdraw Funds</Text>
+                <TouchableOpacity onPress={() => setShowWithdrawRequestModal(false)}>
+                  <Ionicons name="close" size={24} color={colors.textMuted} />
+                </TouchableOpacity>
+              </View>
+              
+              <View style={[styles.transferInfo, { backgroundColor: colors.bgSecondary }]}>
+                <View style={[styles.transferInfoRow, { borderBottomColor: colors.border }]}>
+                  <Text style={[styles.transferLabel, { color: colors.textMuted }]}>Wallet Balance</Text>
+                  <Text style={[styles.transferValueGold, { color: colors.primary }]}>${walletBalance.toFixed(2)}</Text>
+                </View>
+              </View>
+
+              <Text style={[styles.inputLabel, { color: colors.textMuted }]}>Amount (USD)</Text>
+              <TextInput
+                style={[styles.transferInput, { backgroundColor: colors.bgSecondary, borderColor: colors.border, color: colors.textPrimary }]}
+                value={transferAmount}
+                onChangeText={setTransferAmount}
+                placeholder="Enter amount"
+                placeholderTextColor={colors.textMuted}
+                keyboardType="numeric"
+              />
+
+              <Text style={[styles.inputLabel, { color: colors.textMuted }]}>Payment Method</Text>
+              <View style={styles.methodRow}>
+                <TouchableOpacity
+                  style={[styles.methodBtn, { backgroundColor: colors.bgSecondary, borderColor: colors.border }, withdrawMethod === 'Bank' && { backgroundColor: `${colors.primary}20`, borderColor: colors.primary }]}
+                  onPress={() => setWithdrawMethod('Bank')}
+                >
+                  <Ionicons name="business-outline" size={20} color={withdrawMethod === 'Bank' ? colors.primary : colors.textMuted} />
+                  <Text style={[styles.methodBtnText, { color: withdrawMethod === 'Bank' ? colors.primary : colors.textMuted }]}>Bank Transfer</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.methodBtn, { backgroundColor: colors.bgSecondary, borderColor: colors.border }, withdrawMethod === 'UPI' && { backgroundColor: `${colors.primary}20`, borderColor: colors.primary }]}
+                  onPress={() => setWithdrawMethod('UPI')}
+                >
+                  <Ionicons name="phone-portrait-outline" size={20} color={withdrawMethod === 'UPI' ? colors.primary : colors.textMuted} />
+                  <Text style={[styles.methodBtnText, { color: withdrawMethod === 'UPI' ? colors.primary : colors.textMuted }]}>UPI</Text>
+                </TouchableOpacity>
+              </View>
+
+              {withdrawMethod === 'Bank' && (
+                <View>
+                  <Text style={[styles.inputLabel, { color: colors.textMuted }]}>Account Holder Name</Text>
+                  <TextInput
+                    style={[styles.transferInput, { backgroundColor: colors.bgSecondary, borderColor: colors.border, color: colors.textPrimary }]}
+                    value={bankDetails.accountHolderName}
+                    onChangeText={(text) => setBankDetails({ ...bankDetails, accountHolderName: text })}
+                    placeholder="Enter account holder name"
+                    placeholderTextColor={colors.textMuted}
+                  />
+                  
+                  <Text style={[styles.inputLabel, { color: colors.textMuted }]}>Bank Name</Text>
+                  <TextInput
+                    style={[styles.transferInput, { backgroundColor: colors.bgSecondary, borderColor: colors.border, color: colors.textPrimary }]}
+                    value={bankDetails.bankName}
+                    onChangeText={(text) => setBankDetails({ ...bankDetails, bankName: text })}
+                    placeholder="Enter bank name"
+                    placeholderTextColor={colors.textMuted}
+                  />
+                  
+                  <Text style={[styles.inputLabel, { color: colors.textMuted }]}>Account Number</Text>
+                  <TextInput
+                    style={[styles.transferInput, { backgroundColor: colors.bgSecondary, borderColor: colors.border, color: colors.textPrimary }]}
+                    value={bankDetails.accountNumber}
+                    onChangeText={(text) => setBankDetails({ ...bankDetails, accountNumber: text })}
+                    placeholder="Enter account number"
+                    placeholderTextColor={colors.textMuted}
+                    keyboardType="numeric"
+                  />
+                  
+                  <Text style={[styles.inputLabel, { color: colors.textMuted }]}>IFSC Code</Text>
+                  <TextInput
+                    style={[styles.transferInput, { backgroundColor: colors.bgSecondary, borderColor: colors.border, color: colors.textPrimary }]}
+                    value={bankDetails.ifscCode}
+                    onChangeText={(text) => setBankDetails({ ...bankDetails, ifscCode: text.toUpperCase() })}
+                    placeholder="Enter IFSC code"
+                    placeholderTextColor={colors.textMuted}
+                    autoCapitalize="characters"
+                  />
+                </View>
+              )}
+
+              {withdrawMethod === 'UPI' && (
+                <View>
+                  <Text style={[styles.inputLabel, { color: colors.textMuted }]}>UPI ID</Text>
+                  <TextInput
+                    style={[styles.transferInput, { backgroundColor: colors.bgSecondary, borderColor: colors.border, color: colors.textPrimary }]}
+                    value={upiId}
+                    onChangeText={setUpiId}
+                    placeholder="Enter UPI ID (e.g., name@upi)"
+                    placeholderTextColor={colors.textMuted}
+                    autoCapitalize="none"
+                  />
+                </View>
+              )}
+
+              <TouchableOpacity 
+                style={[styles.withdrawSubmitBtn, { backgroundColor: colors.primary }, isTransferring && styles.btnDisabled]}
+                onPress={handleWithdrawRequest}
+                disabled={isTransferring}
+              >
+                {isTransferring ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.withdrawSubmitBtnText}>Submit Withdrawal Request</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
         </View>
       </Modal>
 
@@ -1556,6 +1774,73 @@ const styles = StyleSheet.create({
     color: '#888',
     fontSize: 12,
     marginTop: 4,
+  },
+  // Wallet Card Styles
+  walletCard: {
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  walletHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  walletIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  walletInfo: {
+    flex: 1,
+  },
+  walletTitle: {
+    fontSize: 12,
+    marginBottom: 2,
+  },
+  walletBalanceText: {
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  walletWithdrawBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 10,
+    gap: 6,
+  },
+  walletWithdrawBtnText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  // Method Selection Styles
+  methodRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 16,
+  },
+  methodBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 8,
+  },
+  methodBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
 
