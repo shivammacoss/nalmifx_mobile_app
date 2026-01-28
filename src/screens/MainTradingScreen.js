@@ -885,6 +885,38 @@ const HomeTab = ({ navigation }) => {
         </View>
       </View>
 
+      {/* Challenge Info Bar - When in challenge mode */}
+      {ctx.isChallengeMode && ctx.selectedChallengeAccount && (
+        <View style={[styles.challengeInfoBar, { backgroundColor: '#1a1a1a', borderColor: '#dc2626' }]}>
+          <View style={styles.challengeInfoItem}>
+            <Ionicons name="trophy" size={14} color="#f59e0b" />
+            <Text style={styles.challengeInfoLabel}>{ctx.selectedChallengeAccount.challengeId?.name || 'Challenge'}</Text>
+            <Text style={styles.challengeInfoValue}>Phase {ctx.selectedChallengeAccount.currentStep || 1}/{ctx.selectedChallengeAccount.challengeId?.stepsCount || 2}</Text>
+          </View>
+          <View style={styles.challengeInfoDivider} />
+          <View style={styles.challengeInfoItem}>
+            <Text style={styles.challengeInfoLabel}>Daily DD:</Text>
+            <Text style={[styles.challengeInfoValue, { color: (ctx.selectedChallengeAccount.dailyDrawdownPercent || 0) > (ctx.selectedChallengeAccount.challengeId?.maxDailyDrawdownPercent || 4) * 0.8 ? '#ef4444' : '#22c55e' }]}>
+              {(ctx.selectedChallengeAccount.dailyDrawdownPercent || 0).toFixed(2)}% / {ctx.selectedChallengeAccount.challengeId?.maxDailyDrawdownPercent || 4}%
+            </Text>
+          </View>
+          <View style={styles.challengeInfoDivider} />
+          <View style={styles.challengeInfoItem}>
+            <Text style={styles.challengeInfoLabel}>Overall DD:</Text>
+            <Text style={[styles.challengeInfoValue, { color: (ctx.selectedChallengeAccount.overallDrawdownPercent || 0) > (ctx.selectedChallengeAccount.challengeId?.maxOverallDrawdownPercent || 8) * 0.8 ? '#ef4444' : '#22c55e' }]}>
+              {(ctx.selectedChallengeAccount.overallDrawdownPercent || 0).toFixed(2)}% / {ctx.selectedChallengeAccount.challengeId?.maxOverallDrawdownPercent || 8}%
+            </Text>
+          </View>
+          <View style={styles.challengeInfoDivider} />
+          <View style={styles.challengeInfoItem}>
+            <Text style={styles.challengeInfoLabel}>Profit:</Text>
+            <Text style={[styles.challengeInfoValue, { color: (ctx.selectedChallengeAccount.profitPercent || 0) >= 0 ? '#22c55e' : '#ef4444' }]}>
+              {(ctx.selectedChallengeAccount.profitPercent || 0).toFixed(2)}% / {ctx.selectedChallengeAccount.challengeId?.profitTargetPercent || 10}%
+            </Text>
+          </View>
+        </View>
+      )}
+
       {/* Challenge Account Card - When in challenge mode */}
       {ctx.isChallengeMode && ctx.selectedChallengeAccount && (
         <View style={[styles.accountCard, { 
@@ -3420,6 +3452,7 @@ const MoreTab = ({ navigation }) => {
     { icon: 'book-outline', label: 'Orders', screen: 'OrderBook', isTab: false, color: colors.primary },
     { icon: 'wallet-outline', label: 'Wallet', screen: 'Wallet', isTab: false, color: colors.primary },
     { icon: 'copy-outline', label: 'Copy Trade', screen: 'CopyTrade', isTab: false, color: colors.primary },
+    { icon: 'trophy-outline', label: 'Challenge Rules', screen: 'ChallengeRules', isTab: false, color: '#f59e0b' },
     { icon: 'people-outline', label: 'IB Program', screen: 'IB', isTab: false, color: colors.primary },
     { icon: 'person-outline', label: 'Profile', screen: 'Profile', isTab: false, color: colors.primary },
     { icon: 'help-circle-outline', label: 'Support', screen: 'Support', isTab: false, color: colors.primary },
@@ -3555,6 +3588,38 @@ const styles = StyleSheet.create({
   accountType: { color: '#666', fontSize: 12, marginTop: 2 },
   challengeBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
   challengeBadgeText: { fontSize: 10, fontWeight: '700' },
+  challengeInfoBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginHorizontal: 16,
+    marginBottom: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    flexWrap: 'wrap',
+  },
+  challengeInfoItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  challengeInfoLabel: {
+    color: '#888',
+    fontSize: 11,
+  },
+  challengeInfoValue: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  challengeInfoDivider: {
+    width: 1,
+    height: 16,
+    backgroundColor: '#333',
+    marginHorizontal: 8,
+  },
   failedReasonContainer: { 
     flexDirection: 'row', 
     alignItems: 'center', 

@@ -556,7 +556,7 @@ const WalletScreen = ({ navigation }) => {
 
             <Text style={[styles.inputLabel, { color: colors.textMuted }]}>Payment Method</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.methodsScroll}>
-              {paymentMethods.map((method) => (
+              {paymentMethods.filter(m => m.type !== 'QR Code').map((method) => (
                 <TouchableOpacity
                   key={method._id}
                   style={[styles.methodCard, { backgroundColor: colors.bgSecondary, borderColor: colors.border }, selectedMethod?._id === method._id && styles.methodCardActive]}

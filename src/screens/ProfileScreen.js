@@ -78,7 +78,13 @@ const ProfileScreen = ({ navigation }) => {
       if (userData) {
         const parsed = JSON.parse(userData);
         setUser(parsed);
-        setProfileImage(parsed.profileImage || null);
+        // Convert relative path to full URL if needed
+        let imageUrl = parsed.profileImage || null;
+        if (imageUrl && imageUrl.startsWith('/uploads')) {
+          const baseUrl = API_URL.replace('/api', '');
+          imageUrl = `${baseUrl}${imageUrl}`;
+        }
+        setProfileImage(imageUrl);
         setEditData({
           firstName: parsed.firstName || '',
           lastName: parsed.lastName || '',
@@ -150,7 +156,12 @@ const ProfileScreen = ({ navigation }) => {
       });
       const data = await res.json();
       if (data.success || data.profileImage) {
-        const imageUrl = data.profileImage || imageUri;
+        // Convert relative path to full URL
+        let imageUrl = data.profileImage || imageUri;
+        if (imageUrl && imageUrl.startsWith('/uploads')) {
+          const baseUrl = API_URL.replace('/api', '');
+          imageUrl = `${baseUrl}${imageUrl}`;
+        }
         setProfileImage(imageUrl);
         const updatedUser = { ...user, profileImage: imageUrl };
         await SecureStore.setItemAsync('user', JSON.stringify(updatedUser));
