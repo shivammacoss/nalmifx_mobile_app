@@ -132,7 +132,10 @@ const BuyChallengeScreen = ({ navigation }) => {
       const data = await res.json();
       if (data.success) {
         Alert.alert('Success', 'Challenge purchased successfully!', [
-          { text: 'OK', onPress: () => navigation.goBack() }
+          { text: 'OK', onPress: () => {
+            // Navigate back and trigger refresh of challenge accounts
+            navigation.navigate('Accounts', { refreshChallengeAccounts: true });
+          }}
         ]);
       } else {
         Alert.alert('Error', data.message || 'Failed to purchase challenge');

@@ -113,6 +113,17 @@ const AccountsScreen = ({ navigation, route }) => {
     }
   }, [route?.params?.activeTab]);
 
+  // Handle refresh after buying challenge
+  useEffect(() => {
+    if (route?.params?.refreshChallengeAccounts && user) {
+      // Switch to challenge tab and refresh
+      setActiveTab('challenge');
+      fetchChallengeAccounts();
+      // Clear the param to prevent re-triggering
+      navigation.setParams({ refreshChallengeAccounts: null });
+    }
+  }, [route?.params?.refreshChallengeAccounts, user]);
+
   const fetchWalletBalance = async () => {
     try {
       const res = await fetch(`${API_URL}/wallet/${user._id}`);
@@ -303,12 +314,12 @@ const AccountsScreen = ({ navigation, route }) => {
       console.log('Transfer response:', res.status, data);
       
       if (res.ok) {
-        Alert.alert('Success', 'Funds transferred successfully!');
+        // Fetch updated data first, then close modal
+        await Promise.all([fetchAccounts(), fetchWalletBalance()]);
         setShowTransferModal(false);
         setTransferAmount('');
         setSelectedAccount(null);
-        fetchAccounts();
-        fetchWalletBalance();
+        Alert.alert('Success', 'Funds transferred successfully!');
       } else {
         Alert.alert('Error', data.message || 'Transfer failed');
       }
@@ -348,12 +359,12 @@ const AccountsScreen = ({ navigation, route }) => {
       const data = await res.json();
       
       if (res.ok) {
-        Alert.alert('Success', 'Funds withdrawn to main wallet!');
+        // Fetch updated data first, then close modal
+        await Promise.all([fetchAccounts(), fetchWalletBalance()]);
         setShowWithdrawModal(false);
         setTransferAmount('');
         setSelectedAccount(null);
-        fetchAccounts();
-        fetchWalletBalance();
+        Alert.alert('Success', 'Funds withdrawn to main wallet!');
       } else {
         Alert.alert('Error', data.message || 'Withdrawal failed');
       }
@@ -460,12 +471,13 @@ const AccountsScreen = ({ navigation, route }) => {
       const data = await res.json();
       
       if (res.ok) {
-        Alert.alert('Success', `$${transferAmount} transferred successfully!`);
+        // Fetch updated data first, then close modal
+        await fetchAccounts();
         setShowAccountTransferModal(false);
         setTransferAmount('');
         setSelectedAccount(null);
         setTargetAccount(null);
-        fetchAccounts();
+        Alert.alert('Success', `$${transferAmount} transferred successfully!`);
       } else {
         Alert.alert('Error', data.message || 'Transfer failed');
       }

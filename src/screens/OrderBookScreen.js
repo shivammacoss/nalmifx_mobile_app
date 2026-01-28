@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
 import { API_URL } from '../config/api';
 import { useTheme } from '../context/ThemeContext';
+import socketService from '../services/socketService';
 
 const OrderBookScreen = ({ navigation }) => {
   const { colors, isDark } = useTheme();
@@ -29,87 +30,75 @@ const OrderBookScreen = ({ navigation }) => {
   const [showAccountPicker, setShowAccountPicker] = useState(false);
 
   useEffect(() => {
-    loadUser();
+    loadUserAndData();
   }, []);
 
-  useEffect(() => {
-    if (user) {
-      // Set loading false early to show UI, then fetch data in background
-      setLoading(false);
-      fetchAccounts();
-    }
-  }, [user]);
-
-  useEffect(() => {
-    if (accounts.length > 0) {
-      fetchAllTrades();
-    }
-  }, [accounts, selectedAccount]);
-
-  useEffect(() => {
-    if (openTrades.length > 0) {
-      fetchPrices();
-      const interval = setInterval(fetchPrices, 3000);
-      return () => clearInterval(interval);
-    }
-  }, [openTrades]);
-
-  const loadUser = async () => {
+  // Load user and immediately start fetching data
+  const loadUserAndData = async () => {
     try {
       const userData = await SecureStore.getItemAsync('user');
       if (userData) {
-        setUser(JSON.parse(userData));
+        const parsedUser = JSON.parse(userData);
+        setUser(parsedUser);
+        // Immediately fetch accounts and trades in parallel
+        fetchAccountsAndTrades(parsedUser);
       } else {
         navigation.replace('Login');
       }
     } catch (e) {
       console.error('Error loading user:', e);
+      setLoading(false);
     }
   };
 
-  const fetchAccounts = async () => {
+  // Fetch accounts and trades together for faster loading
+  const fetchAccountsAndTrades = async (userData) => {
     try {
-      console.log('OrderBookScreen - Fetching accounts for user:', user._id);
-      const res = await fetch(`${API_URL}/trading-accounts/user/${user._id}`);
+      const res = await fetch(`${API_URL}/trading-accounts/user/${userData._id}`);
       const data = await res.json();
-      console.log('OrderBookScreen - Accounts response:', data.accounts?.length || 0, 'accounts');
       const accountsList = data.accounts || [];
       setAccounts(accountsList);
-      // If no accounts loaded, try again after a short delay
-      if (accountsList.length === 0) {
-        setTimeout(fetchAccounts, 2000);
+      
+      if (accountsList.length > 0) {
+        // Fetch trades for first account immediately (faster initial load)
+        await fetchTradesForAccounts(accountsList);
       }
+      setLoading(false);
     } catch (e) {
       console.warn('Error fetching accounts:', e.message);
+      setLoading(false);
     }
   };
 
-  const fetchPrices = async () => {
-    const symbols = [...new Set(openTrades.map(t => t.symbol))];
-    if (symbols.length === 0) return;
+  useEffect(() => {
+    if (accounts.length > 0 && !loading) {
+      fetchAllTrades();
+    }
+  }, [selectedAccount]);
+
+  // WebSocket for real-time price updates
+  useEffect(() => {
+    // Connect to WebSocket if not already connected
+    socketService.connect();
     
-    try {
-      const res = await fetch(`${API_URL}/prices/batch`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ symbols })
-      });
-      const data = await res.json();
-      if (data.success && data.prices) {
-        setLivePrices(data.prices);
+    // Subscribe to price updates
+    const unsubscribe = socketService.addPriceListener((prices) => {
+      if (prices && Object.keys(prices).length > 0) {
+        setLivePrices(prices);
       }
-    } catch (e) {
-      console.error('Error fetching prices:', e);
-    }
-  };
+    });
+    
+    return () => unsubscribe();
+  }, []);
 
-  const fetchAllTrades = async () => {
+  // Optimized: Fetch trades for given accounts list
+  const fetchTradesForAccounts = async (accountsList) => {
     try {
       const accountsToFetch = selectedAccount === 'all' 
-        ? accounts 
-        : accounts.filter(a => a._id === selectedAccount);
+        ? accountsList 
+        : accountsList.filter(a => a._id === selectedAccount);
 
-      // Fetch all data in parallel for each account
+      // Fetch all data in parallel for all accounts at once
       const fetchPromises = accountsToFetch.map(async (account) => {
         const [openRes, historyRes, pendingRes] = await Promise.all([
           fetch(`${API_URL}/trade/open/${account._id}`),
@@ -141,6 +130,12 @@ const OrderBookScreen = ({ navigation }) => {
       setPendingOrders(allPending);
     } catch (e) {
       console.error('Error fetching trades:', e);
+    }
+  };
+
+  const fetchAllTrades = async () => {
+    if (accounts.length > 0) {
+      await fetchTradesForAccounts(accounts);
     }
   };
 

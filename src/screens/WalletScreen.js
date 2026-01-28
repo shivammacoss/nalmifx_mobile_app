@@ -51,13 +51,15 @@ const WalletScreen = ({ navigation }) => {
 
   useEffect(() => {
     if (user) {
-      // Fetch wallet data immediately
-      fetchWalletData();
+      // Fetch wallet data first, then set loading false
+      const loadData = async () => {
+        await fetchWalletData();
+        setLoading(false);
+      };
+      loadData();
       // Fetch payment methods and currencies in background
       fetchPaymentMethods();
       fetchCurrencies();
-      // Set loading false after a short delay to show UI
-      setLoading(false);
     }
   }, [user]);
 

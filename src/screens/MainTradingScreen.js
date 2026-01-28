@@ -28,6 +28,7 @@ import { WebView } from 'react-native-webview';
 import * as SecureStore from 'expo-secure-store';
 import { API_URL } from '../config';
 import { useTheme } from '../context/ThemeContext';
+import socketService from '../services/socketService';
 
 const Tab = createBottomTabNavigator();
 const { width, height } = Dimensions.get('window');
@@ -379,7 +380,9 @@ const TradingProvider = ({ children, navigation, route }) => {
   }, [selectedAccount?._id]);
 
   useEffect(() => {
-    if (selectedAccount) {
+    // Fetch trades for the active account (regular or challenge)
+    const hasActiveAccount = isChallengeMode ? selectedChallengeAccount : selectedAccount;
+    if (hasActiveAccount) {
       fetchOpenTrades();
       fetchPendingOrders();
       fetchTradeHistory();
@@ -402,18 +405,43 @@ const TradingProvider = ({ children, navigation, route }) => {
         clearInterval(historyInterval);
       };
     }
-  }, [selectedAccount]);
+  }, [selectedAccount, isChallengeMode, selectedChallengeAccount]);
 
+  // WebSocket connection for real-time prices
   useEffect(() => {
-    fetchLivePrices();
+    // Connect to WebSocket
+    socketService.connect();
+    
+    // Subscribe to price updates via WebSocket
+    const unsubscribe = socketService.addPriceListener((prices) => {
+      if (prices && Object.keys(prices).length > 0) {
+        setLivePrices(prev => {
+          const merged = { ...prev };
+          Object.entries(prices).forEach(([symbol, price]) => {
+            if (price && price.bid) merged[symbol] = price;
+          });
+          return merged;
+        });
+        
+        setInstruments(prev => prev.map(inst => {
+          const price = prices[inst.symbol];
+          if (price && price.bid) {
+            return { ...inst, bid: price.bid, ask: price.ask || price.bid, spread: Math.abs((price.ask || price.bid) - price.bid) };
+          }
+          return inst;
+        }));
+      }
+    });
+    
+    // Fetch admin spreads and news (these don't need WebSocket)
     fetchAdminSpreads();
     fetchMarketWatchNews();
-    // Faster price updates (every 1 second for responsive trading)
-    const priceInterval = setInterval(fetchLivePrices, 1000);
+    
     // Refresh news every 30 seconds
     const newsInterval = setInterval(fetchMarketWatchNews, 30000);
+    
     return () => {
-      clearInterval(priceInterval);
+      unsubscribe();
       clearInterval(newsInterval);
     };
   }, []);
@@ -507,18 +535,22 @@ const TradingProvider = ({ children, navigation, route }) => {
   };
 
   const fetchOpenTrades = async () => {
-    if (!selectedAccount) return;
+    // Use challenge account if in challenge mode, otherwise regular account
+    const accountId = isChallengeMode && selectedChallengeAccount ? selectedChallengeAccount._id : selectedAccount?._id;
+    if (!accountId) return;
     try {
-      const res = await fetch(`${API_URL}/trade/open/${selectedAccount._id}`);
+      const res = await fetch(`${API_URL}/trade/open/${accountId}`);
       const data = await res.json();
       if (data.success) setOpenTrades(data.trades || []);
     } catch (e) {}
   };
 
   const fetchPendingOrders = async () => {
-    if (!selectedAccount) return;
+    // Use challenge account if in challenge mode, otherwise regular account
+    const accountId = isChallengeMode && selectedChallengeAccount ? selectedChallengeAccount._id : selectedAccount?._id;
+    if (!accountId) return;
     try {
-      const res = await fetch(`${API_URL}/trade/pending/${selectedAccount._id}`);
+      const res = await fetch(`${API_URL}/trade/pending/${accountId}`);
       const data = await res.json();
       if (data.success) setPendingOrders(data.trades || []);
     } catch (e) {
@@ -527,58 +559,29 @@ const TradingProvider = ({ children, navigation, route }) => {
   };
 
   const fetchTradeHistory = async () => {
-    if (!selectedAccount) return;
+    // Use challenge account if in challenge mode, otherwise regular account
+    const accountId = isChallengeMode && selectedChallengeAccount ? selectedChallengeAccount._id : selectedAccount?._id;
+    if (!accountId) return;
     try {
-      const res = await fetch(`${API_URL}/trade/history/${selectedAccount._id}?limit=50`);
+      const res = await fetch(`${API_URL}/trade/history/${accountId}?limit=50`);
       const data = await res.json();
       if (data.success) setTradeHistory(data.trades || []);
     } catch (e) {}
   };
 
   const fetchAccountSummary = async () => {
-    if (!selectedAccount) return;
+    // Use challenge account if in challenge mode, otherwise regular account
+    const accountId = isChallengeMode && selectedChallengeAccount ? selectedChallengeAccount._id : selectedAccount?._id;
+    if (!accountId) return;
     try {
       // Pass current prices to backend for accurate floating PnL calculation
       const pricesParam = Object.keys(livePrices).length > 0 
         ? `?prices=${encodeURIComponent(JSON.stringify(livePrices))}` 
         : '';
-      const res = await fetch(`${API_URL}/trade/summary/${selectedAccount._id}${pricesParam}`);
+      const res = await fetch(`${API_URL}/trade/summary/${accountId}${pricesParam}`);
       const data = await res.json();
       if (data.success) setAccountSummary(data.summary);
     } catch (e) {}
-  };
-
-  const fetchLivePrices = async () => {
-    try {
-      const symbols = instruments.map(i => i.symbol);
-      console.log('Fetching prices from:', `${API_URL}/prices/batch`);
-      const res = await fetch(`${API_URL}/prices/batch`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ symbols })
-      });
-      const data = await res.json();
-      console.log('Prices response:', data.success ? `Got ${Object.keys(data.prices || {}).length} prices` : 'Failed');
-      if (data.success && data.prices) {
-        setLivePrices(prev => {
-          const merged = { ...prev };
-          Object.entries(data.prices).forEach(([symbol, price]) => {
-            if (price && price.bid) merged[symbol] = price;
-          });
-          return merged;
-        });
-        
-        setInstruments(prev => prev.map(inst => {
-          const price = data.prices[inst.symbol];
-          if (price && price.bid) {
-            return { ...inst, bid: price.bid, ask: price.ask || price.bid, spread: Math.abs((price.ask || price.bid) - price.bid) };
-          }
-          return inst;
-        }));
-      }
-    } catch (e) {
-      console.error('Error fetching prices:', e.message);
-    }
   };
 
   const calculatePnl = (trade) => {
@@ -1539,6 +1542,15 @@ const QuotesTab = ({ navigation }) => {
     
     if (!selectedInstrument || !hasValidAccount || !ctx.user) return;
     if (isExecuting) return;
+    
+    // Client-side validation for challenge account SL mandatory rule
+    if (ctx.isChallengeMode && ctx.selectedChallengeAccount) {
+      const rules = ctx.selectedChallengeAccount.challengeId?.rules;
+      if (rules?.stopLossMandatory && !stopLoss) {
+        toast?.showToast('⚠️ Stop Loss is mandatory for this challenge', 'warning');
+        return;
+      }
+    }
     
     console.log('DEBUG: Executing trade with account:', { 
       accountId: ctx.selectedAccount.accountId, 
@@ -3055,6 +3067,8 @@ const ChartTab = ({ route }) => {
   const [volume, setVolume] = useState(0.01);
   const [volumeText, setVolumeText] = useState('0.01');
   const [isExecuting, setIsExecuting] = useState(false);
+  const [stopLoss, setStopLoss] = useState('');
+  const [takeProfit, setTakeProfit] = useState('');
   
   // Get leverage from account
   const getAccountLeverage = () => {
@@ -3167,6 +3181,16 @@ const ChartTab = ({ route }) => {
   };
 
   const executeTrade = async () => {
+    // Client-side validation for challenge account SL mandatory rule
+    if (ctx.isChallengeMode && ctx.selectedChallengeAccount) {
+      const rules = ctx.selectedChallengeAccount.challengeId?.rules;
+      if (rules?.stopLossMandatory && !stopLoss) {
+        Alert.alert('Stop Loss Required', 'Stop Loss is mandatory for this challenge. Please set SL before trading.');
+        return;
+      }
+    }
+    
+    setIsExecuting(true);
     try {
       const price = orderSide === 'BUY' ? currentPrice?.ask : currentPrice?.bid;
       const segment = currentInstrument?.category || 'Forex';
@@ -3176,41 +3200,53 @@ const ChartTab = ({ route }) => {
         ? ctx.selectedChallengeAccount._id 
         : ctx.selectedAccount?._id;
       
+      const orderData = {
+        userId: ctx.user?._id,
+        tradingAccountId: tradingAccountId,
+        symbol: activeSymbol,
+        segment: segment,
+        side: orderSide,
+        quantity: volume,
+        bid: currentPrice?.bid,
+        ask: currentPrice?.ask,
+        leverage: ctx.selectedAccount?.leverage || '1:100',
+        orderType: 'MARKET'
+      };
+      
+      // Add SL/TP if set
+      if (stopLoss) orderData.sl = parseFloat(stopLoss);
+      if (takeProfit) orderData.tp = parseFloat(takeProfit);
+      
       const res = await fetch(`${API_URL}/trade/open`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: ctx.user?._id,
-          tradingAccountId: tradingAccountId,
-          symbol: activeSymbol,
-          segment: segment,
-          side: orderSide,
-          quantity: volume,
-          bid: currentPrice?.bid,
-          ask: currentPrice?.ask,
-          leverage: ctx.selectedAccount?.leverage || '1:100',
-          orderType: 'MARKET'
-        })
+        body: JSON.stringify(orderData)
       });
       const data = await res.json();
       if (data.success) {
         const isChallengeMsg = data.isChallengeAccount ? ' (Challenge)' : '';
-        Alert.alert('Success', `${orderSide} order placed!${isChallengeMsg}`);
+        toast?.showToast(`${orderSide} order placed!${isChallengeMsg}`, 'success');
         setShowOrderPanel(false);
+        setStopLoss('');
+        setTakeProfit('');
         ctx.fetchOpenTrades();
         ctx.fetchAccountSummary();
       } else {
         // Handle challenge-specific error codes
         if (data.code === 'DRAWDOWN_BREACH' || data.code === 'DAILY_DRAWDOWN_BREACH') {
-          Alert.alert('Challenge Failed', data.message);
+          toast?.showToast(`Challenge Failed: ${data.message}`, 'error');
+        } else if (data.code === 'SL_MANDATORY') {
+          toast?.showToast('⚠️ Stop Loss is mandatory for this challenge', 'warning');
         } else if (data.accountFailed) {
-          Alert.alert('Challenge Account Failed', data.failReason || data.message);
+          toast?.showToast(`Challenge Account Failed: ${data.failReason || data.message}`, 'error');
         } else {
-          Alert.alert('Error', data.message || 'Failed to place order');
+          toast?.showToast(data.message || 'Failed to place order', 'error');
         }
       }
     } catch (e) {
-      Alert.alert('Error', 'Network error');
+      toast?.showToast('Network error', 'error');
+    } finally {
+      setIsExecuting(false);
     }
   };
 
@@ -3398,14 +3434,49 @@ const ChartTab = ({ route }) => {
               </View>
             </View>
 
+            {/* SL/TP for Challenge Accounts */}
+            {ctx.isChallengeMode && ctx.selectedChallengeAccount && (
+              <View style={styles.slTpRow}>
+                <View style={styles.slTpInputGroup}>
+                  <Text style={[styles.inputLabel, ctx.selectedChallengeAccount.challengeId?.rules?.stopLossMandatory && { color: '#f59e0b' }]}>
+                    Stop Loss {ctx.selectedChallengeAccount.challengeId?.rules?.stopLossMandatory ? '*' : ''}
+                  </Text>
+                  <TextInput
+                    style={[styles.slTpInput, { backgroundColor: '#1a1a1a', color: '#fff', borderColor: '#333' }]}
+                    value={stopLoss}
+                    onChangeText={setStopLoss}
+                    placeholder="0.00"
+                    placeholderTextColor="#666"
+                    keyboardType="decimal-pad"
+                  />
+                </View>
+                <View style={styles.slTpInputGroup}>
+                  <Text style={styles.inputLabel}>Take Profit</Text>
+                  <TextInput
+                    style={[styles.slTpInput, { backgroundColor: '#1a1a1a', color: '#fff', borderColor: '#333' }]}
+                    value={takeProfit}
+                    onChangeText={setTakeProfit}
+                    placeholder="0.00"
+                    placeholderTextColor="#666"
+                    keyboardType="decimal-pad"
+                  />
+                </View>
+              </View>
+            )}
+
             {/* Execute Button */}
             <TouchableOpacity 
-              style={[styles.executeBtn, { backgroundColor: orderSide === 'BUY' ? '#dc2626' : '#dc2626' }]}
+              style={[styles.executeBtn, { backgroundColor: orderSide === 'BUY' ? '#22c55e' : '#ef4444' }, isExecuting && { opacity: 0.6 }]}
               onPress={executeTrade}
+              disabled={isExecuting}
             >
-              <Text style={styles.executeBtnText}>
-                {orderSide} {volume.toFixed(2)} {activeSymbol}
-              </Text>
+              {isExecuting ? (
+                <ActivityIndicator color="#fff" size="small" />
+              ) : (
+                <Text style={styles.executeBtnText}>
+                  {orderSide} {volume.toFixed(2)} {activeSymbol}
+                </Text>
+              )}
             </TouchableOpacity>
           </View>
         </View>
