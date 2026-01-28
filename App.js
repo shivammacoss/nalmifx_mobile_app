@@ -22,6 +22,7 @@ import InstructionsScreen from './src/screens/InstructionsScreen';
 import NotificationsScreen from './src/screens/NotificationsScreen';
 import ForgotPasswordScreen from './src/screens/ForgotPasswordScreen';
 import ChallengeRulesScreen from './src/screens/ChallengeRulesScreen';
+import BuyChallengeScreen from './src/screens/BuyChallengeScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -54,6 +55,7 @@ const AppContent = () => {
         <Stack.Screen name="Notifications" component={NotificationsScreen} />
         <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
         <Stack.Screen name="ChallengeRules" component={ChallengeRulesScreen} />
+        <Stack.Screen name="BuyChallenge" component={BuyChallengeScreen} />
       </Stack.Navigator>
     </>
   );

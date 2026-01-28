@@ -731,7 +731,7 @@ const AccountsScreen = ({ navigation, route }) => {
             {/* Buy Challenge Button */}
             <TouchableOpacity 
               style={[styles.buyChallengeBtn, { backgroundColor: colors.accent }]}
-              onPress={() => { fetchAvailableChallenges(); fetchWalletBalance(); setShowBuyChallengeModal(true); }}
+              onPress={() => navigation.navigate('BuyChallenge')}
             >
               <Ionicons name="add-circle" size={20} color="#fff" />
               <Text style={[styles.buyChallengeBtnText, { color: '#fff' }]}>Buy New Challenge</Text>
