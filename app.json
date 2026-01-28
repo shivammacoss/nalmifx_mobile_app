@@ -37,6 +37,9 @@
         "projectId": "5030619a-2751-401e-b026-99c692987ad7"
       }
     },
-    "owner": "tarun09"
+    "owner": "tarun09",
+    "plugins": [
+      "expo-font"
+    ]
   }
 }
