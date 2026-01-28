@@ -317,36 +317,36 @@ const IBScreen = ({ navigation }) => {
                   <Ionicons name="trending-up" size={20} color="#dc2626" />
                 </View>
                 <Text style={[styles.statLabel, { color: colors.textMuted }]}>Total Earned</Text>
-                <Text style={styles.statValue}>${ibProfile?.totalCommissionEarned?.toFixed(2) || '0.00'}</Text>
+                <Text style={[styles.statValue, { color: colors.textPrimary }]}>${ibProfile?.totalCommissionEarned?.toFixed(2) || '0.00'}</Text>
               </View>
-              <View style={styles.statCard}>
+              <View style={[styles.statCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
                 <View style={[styles.statIcon, { backgroundColor: '#a855f720' }]}>
                   <Ionicons name="people" size={20} color="#a855f7" />
                 </View>
-                <Text style={styles.statLabel}>Direct Referrals</Text>
-                <Text style={styles.statValue}>{ibProfile?.stats?.directReferrals || 0}</Text>
+                <Text style={[styles.statLabel, { color: colors.textMuted }]}>Direct Referrals</Text>
+                <Text style={[styles.statValue, { color: colors.textPrimary }]}>{ibProfile?.stats?.directReferrals || 0}</Text>
               </View>
-              <View style={styles.statCard}>
+              <View style={[styles.statCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
                 <View style={[styles.statIcon, { backgroundColor: '#f9731620' }]}>
                   <Ionicons name="git-network" size={20} color="#f97316" />
                 </View>
-                <Text style={styles.statLabel}>Total Downline</Text>
-                <Text style={styles.statValue}>{ibProfile?.stats?.totalDownline || 0}</Text>
+                <Text style={[styles.statLabel, { color: colors.textMuted }]}>Total Downline</Text>
+                <Text style={[styles.statValue, { color: colors.textPrimary }]}>{ibProfile?.stats?.totalDownline || 0}</Text>
               </View>
             </View>
 
             {/* Commission Rate & Referral Link */}
             <View style={styles.infoCardsRow}>
               {/* Commission Rate */}
-              <View style={styles.commissionRateCard}>
-                <Text style={styles.cardLabel}>Your Commission Rate</Text>
+              <View style={[styles.commissionRateCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+                <Text style={[styles.cardLabel, { color: colors.textMuted }]}>Your Commission Rate</Text>
                 <View style={styles.commissionRateRow}>
                   <View>
-                    <Text style={styles.commissionRateValue}>
+                    <Text style={[styles.commissionRateValue, { color: colors.textPrimary }]}>
                       ${levelProgress?.currentLevel?.commissionRate || 2}
-                      <Text style={styles.commissionRateUnit}>/lot</Text>
+                      <Text style={[styles.commissionRateUnit, { color: colors.textMuted }]}>/lot</Text>
                     </Text>
-                    <Text style={styles.levelName}>Level: {levelProgress?.currentLevel?.name || 'Standard'}</Text>
+                    <Text style={[styles.levelName, { color: colors.textMuted }]}>Level: {levelProgress?.currentLevel?.name || 'Standard'}</Text>
                   </View>
                   <View style={[styles.commissionIcon, { backgroundColor: (levelProgress?.currentLevel?.color || '#22c55e') + '30' }]}>
                     <Ionicons name="cash" size={24} color={levelProgress?.currentLevel?.color || '#22c55e'} />
@@ -375,10 +375,10 @@ const IBScreen = ({ navigation }) => {
 
             {/* Level Progress */}
             {levelProgress?.nextLevel && (
-              <View style={styles.levelProgressCard}>
+              <View style={[styles.levelProgressCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
                 <View style={styles.levelProgressHeader}>
                   <Ionicons name="ribbon" size={20} color="#dc2626" />
-                  <Text style={styles.levelProgressTitle}>Commission Levels</Text>
+                  <Text style={[styles.levelProgressTitle, { color: colors.textPrimary }]}>Commission Levels</Text>
                 </View>
                 <View style={styles.progressBarContainer}>
                   <View style={styles.progressBarLabels}>
@@ -418,10 +418,10 @@ const IBScreen = ({ navigation }) => {
               {activeTab === 'overview' && (
                 <View style={styles.levelStatsGrid}>
                   {[1, 2, 3, 4, 5].map(level => (
-                    <View key={level} style={styles.levelStatCard}>
-                      <Text style={styles.levelStatLabel}>Level {level}</Text>
-                      <Text style={styles.levelStatValue}>{ibProfile?.stats?.[`level${level}Count`] || 0}</Text>
-                      <Text style={styles.levelStatSubLabel}>trades</Text>
+                    <View key={level} style={[styles.levelStatCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+                      <Text style={[styles.levelStatLabel, { color: colors.textMuted }]}>Level {level}</Text>
+                      <Text style={[styles.levelStatValue, { color: colors.textPrimary }]}>{ibProfile?.stats?.[`level${level}Count`] || 0}</Text>
+                      <Text style={[styles.levelStatSubLabel, { color: colors.textMuted }]}>trades</Text>
                       <Text style={styles.levelStatCommission}>${(ibProfile?.stats?.[`level${level}Commission`] || 0).toFixed(2)}</Text>
                     </View>
                   ))}
@@ -433,18 +433,18 @@ const IBScreen = ({ navigation }) => {
                 <View>
                   {referrals.length === 0 ? (
                     <View style={styles.emptyState}>
-                      <Ionicons name="people-outline" size={48} color="#333" />
-                      <Text style={styles.emptyTitle}>No Referrals Yet</Text>
+                      <Ionicons name="people-outline" size={48} color={colors.textMuted} />
+                      <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>No Referrals Yet</Text>
                       <Text style={styles.emptyText}>Share your referral link to start earning</Text>
                     </View>
                   ) : (
                     referrals.map((ref) => (
-                      <View key={ref._id} style={styles.referralItem}>
+                      <View key={ref._id} style={[styles.referralItem, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
                         <View style={styles.referralAvatar}>
                           <Text style={styles.avatarText}>{ref.firstName?.charAt(0)}</Text>
                         </View>
                         <View style={styles.referralInfo}>
-                          <Text style={styles.referralName}>{ref.firstName} {ref.lastName}</Text>
+                          <Text style={[styles.referralName, { color: colors.textPrimary }]}>{ref.firstName} {ref.lastName}</Text>
                           <Text style={styles.referralEmail}>{ref.email}</Text>
                         </View>
                         <Text style={styles.referralDate}>{formatDate(ref.createdAt)}</Text>
@@ -459,15 +459,15 @@ const IBScreen = ({ navigation }) => {
                 <View>
                   {commissions.length === 0 ? (
                     <View style={styles.emptyState}>
-                      <Ionicons name="cash-outline" size={48} color="#333" />
-                      <Text style={styles.emptyTitle}>No Commissions Yet</Text>
+                      <Ionicons name="cash-outline" size={48} color={colors.textMuted} />
+                      <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>No Commissions Yet</Text>
                       <Text style={styles.emptyText}>Commissions will appear when your referrals trade</Text>
                     </View>
                   ) : (
                     commissions.map((comm) => (
-                      <View key={comm._id} style={styles.commissionItem}>
+                      <View key={comm._id} style={[styles.commissionItem, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
                         <View style={styles.commissionItemLeft}>
-                          <Text style={styles.commissionSymbol}>{comm.symbol}</Text>
+                          <Text style={[styles.commissionSymbol, { color: colors.textPrimary }]}>{comm.symbol}</Text>
                           <Text style={styles.commissionMeta}>Level {comm.level} • {comm.tradeLotSize?.toFixed(2)} lots</Text>
                         </View>
                         <View style={styles.commissionItemRight}>
@@ -487,18 +487,18 @@ const IBScreen = ({ navigation }) => {
                 <View>
                   {downline.length === 0 ? (
                     <View style={styles.emptyState}>
-                      <Ionicons name="git-network-outline" size={48} color="#333" />
-                      <Text style={styles.emptyTitle}>No Downline Yet</Text>
+                      <Ionicons name="git-network-outline" size={48} color={colors.textMuted} />
+                      <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>No Downline Yet</Text>
                       <Text style={styles.emptyText}>Your referral network will appear here</Text>
                     </View>
                   ) : (
                     downline.map((node, idx) => (
-                      <View key={node._id || idx} style={styles.downlineItem}>
+                      <View key={node._id || idx} style={[styles.downlineItem, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
                         <View style={[styles.downlineAvatar, { backgroundColor: node.isIB ? '#dc262630' : '#33333' }]}>
                           <Text style={[styles.avatarText, { color: node.isIB ? '#dc2626' : '#888' }]}>{node.firstName?.charAt(0) || '?'}</Text>
                         </View>
                         <View style={styles.downlineInfo}>
-                          <Text style={styles.downlineName}>{node.firstName || 'Unknown'}</Text>
+                          <Text style={[styles.downlineName, { color: colors.textPrimary }]}>{node.firstName || 'Unknown'}</Text>
                           <Text style={styles.downlineEmail}>{node.email}</Text>
                         </View>
                         <View style={[styles.downlineBadge, { backgroundColor: node.isIB ? '#dc262620' : '#33333' }]}>
@@ -515,14 +515,14 @@ const IBScreen = ({ navigation }) => {
               {/* Withdraw Tab */}
               {activeTab === 'withdraw' && (
                 <View style={styles.withdrawContainer}>
-                  <View style={styles.withdrawBalanceCard}>
-                    <Text style={styles.withdrawBalanceLabel}>Available to Withdraw</Text>
+                  <View style={[styles.withdrawBalanceCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+                    <Text style={[styles.withdrawBalanceLabel, { color: colors.textMuted }]}>Available to Withdraw</Text>
                     <Text style={styles.withdrawBalanceValue}>${ibProfile?.ibWalletBalance?.toFixed(2) || '0.00'}</Text>
                   </View>
                   
-                  <Text style={styles.inputLabel}>Withdrawal Amount</Text>
+                  <Text style={[styles.inputLabel, { color: colors.textMuted }]}>Withdrawal Amount</Text>
                   <TextInput
-                    style={styles.input}
+                    style={[styles.input, { backgroundColor: colors.bgCard, borderColor: colors.border, color: colors.textPrimary }]}
                     value={withdrawAmount}
                     onChangeText={setWithdrawAmount}
                     placeholder="Enter amount"
