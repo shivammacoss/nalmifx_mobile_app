@@ -19,7 +19,8 @@
           "NSAllowsArbitraryLoads": true,
           "NSAllowsLocalNetworking": true
         }
-      }
+      },
+      "bundleIdentifier": "com.nalmifx.app"
     },
     "android": {
       "adaptiveIcon": {
