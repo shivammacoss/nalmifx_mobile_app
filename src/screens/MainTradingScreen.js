@@ -1509,6 +1509,9 @@ const QuotesTab = ({ navigation }) => {
   const [takeProfit, setTakeProfit] = useState('');
   const [isExecuting, setIsExecuting] = useState(false);
   const [showAccountPicker, setShowAccountPicker] = useState(false);
+  const [showQuickSlModal, setShowQuickSlModal] = useState(false);
+  const [quickSlValue, setQuickSlValue] = useState('');
+  const [pendingQuickTradeSide, setPendingQuickTradeSide] = useState(null);
   
   // Get leverage from account
   const getAccountLeverage = () => {
@@ -1534,7 +1537,7 @@ const QuotesTab = ({ navigation }) => {
     return 'Forex';
   };
 
-  const executeTrade = async () => {
+  const executeTrade = async (overrideStopLoss = null, overrideSide = null) => {
     // Check if we have a valid account (either regular or challenge)
     const hasValidAccount = ctx.isChallengeMode 
       ? ctx.selectedChallengeAccount 
@@ -1543,20 +1546,25 @@ const QuotesTab = ({ navigation }) => {
     if (!selectedInstrument || !hasValidAccount || !ctx.user) return;
     if (isExecuting) return;
     
+    // Use override values if provided, otherwise use state
+    const effectiveStopLoss = overrideStopLoss || stopLoss;
+    const effectiveSide = overrideSide || orderSide;
+    
     // Client-side validation for challenge account SL mandatory rule
     if (ctx.isChallengeMode && ctx.selectedChallengeAccount) {
       const rules = ctx.selectedChallengeAccount.challengeId?.rules;
-      if (rules?.stopLossMandatory && !stopLoss) {
+      if (rules?.stopLossMandatory && !effectiveStopLoss) {
         toast?.showToast('⚠️ Stop Loss is mandatory for this challenge', 'warning');
         return;
       }
     }
     
+    const activeAccount = ctx.isChallengeMode ? ctx.selectedChallengeAccount : ctx.selectedAccount;
     console.log('DEBUG: Executing trade with account:', { 
-      accountId: ctx.selectedAccount.accountId, 
-      _id: ctx.selectedAccount._id,
-      balance: ctx.selectedAccount.balance, 
-      credit: ctx.selectedAccount.credit 
+      accountId: activeAccount?.accountId, 
+      _id: activeAccount?._id,
+      balance: activeAccount?.balance, 
+      isChallengeMode: ctx.isChallengeMode
     });
     
     setIsExecuting(true);
@@ -1596,16 +1604,16 @@ const QuotesTab = ({ navigation }) => {
         tradingAccountId: tradingAccountId,
         symbol: selectedInstrument.symbol,
         segment: segment,
-        side: orderSide,
-        orderType: orderType === 'MARKET' ? 'MARKET' : `${orderSide}_${pendingType}`,
+        side: effectiveSide,
+        orderType: orderType === 'MARKET' ? 'MARKET' : `${effectiveSide}_${pendingType}`,
         quantity: parseFloat(volume) || 0.01,
         bid: finalBid,
         ask: finalAsk,
         leverage: getAccountLeverage(),
       };
       
-      // Add SL/TP if set
-      if (stopLoss) orderData.sl = parseFloat(stopLoss);
+      // Add SL/TP if set (use effectiveStopLoss which includes override from quick trade modal)
+      if (effectiveStopLoss) orderData.sl = parseFloat(effectiveStopLoss);
       if (takeProfit) orderData.tp = parseFloat(takeProfit);
 
       console.log('Trade order data:', JSON.stringify(orderData, null, 2));
@@ -1620,7 +1628,7 @@ const QuotesTab = ({ navigation }) => {
       
       if (data.success) {
         const isChallengeTradeMsg = data.isChallengeAccount ? ' (Challenge)' : '';
-        toast?.showToast(`${orderSide} ${orderType === 'MARKET' ? 'Market' : pendingType} order placed!${isChallengeTradeMsg}`, 'success');
+        toast?.showToast(`${effectiveSide} ${orderType === 'MARKET' ? 'Market' : pendingType} order placed!${isChallengeTradeMsg}`, 'success');
         setShowOrderPanel(false);
         setPendingPrice('');
         setStopLoss('');
@@ -1877,7 +1885,18 @@ const QuotesTab = ({ navigation }) => {
               <View style={styles.quickTradeRow}>
                 <TouchableOpacity 
                   style={[styles.quickSellBtn, isExecuting && styles.btnDisabled]}
-                  onPress={() => { setOrderSide('SELL'); setOrderType('MARKET'); executeTrade(); }}
+                  onPress={() => { 
+                    // Check if challenge mode with SL mandatory
+                    if (ctx.isChallengeMode && ctx.selectedChallengeAccount?.challengeId?.rules?.stopLossMandatory) {
+                      setPendingQuickTradeSide('SELL');
+                      setQuickSlValue('');
+                      setShowQuickSlModal(true);
+                    } else {
+                      setOrderSide('SELL'); 
+                      setOrderType('MARKET'); 
+                      executeTrade(); 
+                    }
+                  }}
                   disabled={isExecuting}
                 >
                   <Text style={styles.quickBtnLabel}>SELL</Text>
@@ -1887,7 +1906,18 @@ const QuotesTab = ({ navigation }) => {
                 </TouchableOpacity>
                 <TouchableOpacity 
                   style={[styles.quickBuyBtn, isExecuting && styles.btnDisabled]}
-                  onPress={() => { setOrderSide('BUY'); setOrderType('MARKET'); executeTrade(); }}
+                  onPress={() => { 
+                    // Check if challenge mode with SL mandatory
+                    if (ctx.isChallengeMode && ctx.selectedChallengeAccount?.challengeId?.rules?.stopLossMandatory) {
+                      setPendingQuickTradeSide('BUY');
+                      setQuickSlValue('');
+                      setShowQuickSlModal(true);
+                    } else {
+                      setOrderSide('BUY'); 
+                      setOrderType('MARKET'); 
+                      executeTrade(); 
+                    }
+                  }}
                   disabled={isExecuting}
                 >
                   <Text style={styles.quickBtnLabel}>BUY</Text>
@@ -2087,38 +2117,153 @@ const QuotesTab = ({ navigation }) => {
               </TouchableOpacity>
             </View>
             <ScrollView style={styles.accountPickerList}>
-              {(!ctx.accounts || ctx.accounts.length === 0) ? (
+              {/* Regular Accounts Section */}
+              {ctx.accounts && ctx.accounts.length > 0 && (
+                <>
+                  <Text style={[styles.accountPickerSectionTitle, { color: colors.textMuted }]}>Trading Accounts</Text>
+                  {ctx.accounts.map(account => (
+                    <TouchableOpacity 
+                      key={account._id}
+                      style={[styles.accountPickerItem, { backgroundColor: colors.bgCard, borderBottomColor: colors.border }, !ctx.isChallengeMode && ctx.selectedAccount?._id === account._id && styles.accountPickerItemActive]}
+                      onPress={() => { 
+                        ctx.setIsChallengeMode(false);
+                        ctx.setSelectedAccount(account); 
+                        setShowAccountPicker(false); 
+                      }}
+                    >
+                      <View style={styles.accountPickerItemLeft}>
+                        <View style={[styles.accountPickerIcon, { backgroundColor: colors.bgSecondary }, !ctx.isChallengeMode && ctx.selectedAccount?._id === account._id && styles.accountPickerIconActive]}>
+                          <Ionicons name="wallet" size={20} color={!ctx.isChallengeMode && ctx.selectedAccount?._id === account._id ? colors.accent : colors.textMuted} />
+                        </View>
+                        <View>
+                          <Text style={[styles.accountPickerNumber, { color: colors.textPrimary }]}>{account.accountNumber}</Text>
+                          <Text style={[styles.accountPickerType, { color: colors.textMuted }]}>{account.accountTypeId?.name || account.accountType || 'Standard'} • {account.leverage}</Text>
+                        </View>
+                      </View>
+                      <View style={styles.accountPickerItemRight}>
+                        <Text style={[styles.accountPickerBalance, { color: colors.textPrimary }]}>${(account.balance || 0).toFixed(2)}</Text>
+                        {!ctx.isChallengeMode && ctx.selectedAccount?._id === account._id && (
+                          <Ionicons name="checkmark-circle" size={20} color={colors.accent} />
+                        )}
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </>
+              )}
+
+              {/* Challenge Accounts Section */}
+              {ctx.challengeAccounts && ctx.challengeAccounts.length > 0 && (
+                <>
+                  <Text style={[styles.accountPickerSectionTitle, { color: colors.textMuted, marginTop: 16 }]}>Challenge Accounts</Text>
+                  {ctx.challengeAccounts.filter(acc => acc.status === 'ACTIVE').map(account => (
+                    <TouchableOpacity 
+                      key={account._id}
+                      style={[styles.accountPickerItem, { backgroundColor: colors.bgCard, borderBottomColor: colors.border, borderLeftWidth: 3, borderLeftColor: '#dc2626' }, ctx.isChallengeMode && ctx.selectedChallengeAccount?._id === account._id && styles.accountPickerItemActive]}
+                      onPress={() => { 
+                        ctx.setIsChallengeMode(true);
+                        ctx.setSelectedChallengeAccount(account); 
+                        setShowAccountPicker(false); 
+                      }}
+                    >
+                      <View style={styles.accountPickerItemLeft}>
+                        <View style={[styles.accountPickerIcon, { backgroundColor: '#dc262620' }, ctx.isChallengeMode && ctx.selectedChallengeAccount?._id === account._id && { backgroundColor: '#dc262640' }]}>
+                          <Ionicons name="trophy" size={20} color="#dc2626" />
+                        </View>
+                        <View>
+                          <Text style={[styles.accountPickerNumber, { color: colors.textPrimary }]}>{account.accountId}</Text>
+                          <Text style={[styles.accountPickerType, { color: colors.textMuted }]}>{account.challengeId?.name || 'Challenge'} • Step {account.currentStep || 1}</Text>
+                        </View>
+                      </View>
+                      <View style={styles.accountPickerItemRight}>
+                        <Text style={[styles.accountPickerBalance, { color: colors.textPrimary }]}>${(account.balance || 0).toFixed(2)}</Text>
+                        {ctx.isChallengeMode && ctx.selectedChallengeAccount?._id === account._id && (
+                          <Ionicons name="checkmark-circle" size={20} color="#dc2626" />
+                        )}
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </>
+              )}
+
+              {/* No accounts message */}
+              {(!ctx.accounts || ctx.accounts.length === 0) && (!ctx.challengeAccounts || ctx.challengeAccounts.length === 0) && (
                 <View style={{ padding: 20, alignItems: 'center' }}>
                   <Ionicons name="wallet-outline" size={48} color={colors.textMuted} />
                   <Text style={{ color: colors.textMuted, marginTop: 10 }}>No accounts available</Text>
                   <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 5 }}>Please create an account first</Text>
                 </View>
-              ) : (
-                ctx.accounts.map(account => (
-                  <TouchableOpacity 
-                    key={account._id}
-                    style={[styles.accountPickerItem, { backgroundColor: colors.bgCard, borderBottomColor: colors.border }, ctx.selectedAccount?._id === account._id && styles.accountPickerItemActive]}
-                    onPress={() => { ctx.setSelectedAccount(account); setShowAccountPicker(false); }}
-                  >
-                    <View style={styles.accountPickerItemLeft}>
-                      <View style={[styles.accountPickerIcon, { backgroundColor: colors.bgSecondary }, ctx.selectedAccount?._id === account._id && styles.accountPickerIconActive]}>
-                        <Ionicons name="wallet" size={20} color={ctx.selectedAccount?._id === account._id ? colors.accent : colors.textMuted} />
-                      </View>
-                      <View>
-                        <Text style={[styles.accountPickerNumber, { color: colors.textPrimary }]}>{account.accountNumber}</Text>
-                        <Text style={[styles.accountPickerType, { color: colors.textMuted }]}>{account.accountTypeId?.name || account.accountType || 'Standard'} • {account.leverage}</Text>
-                      </View>
-                    </View>
-                    <View style={styles.accountPickerItemRight}>
-                      <Text style={[styles.accountPickerBalance, { color: colors.textPrimary }]}>${(account.balance || 0).toFixed(2)}</Text>
-                      {ctx.selectedAccount?._id === account._id && (
-                        <Ionicons name="checkmark-circle" size={20} color={colors.accent} />
-                      )}
-                    </View>
-                  </TouchableOpacity>
-                ))
               )}
             </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Quick Stop Loss Modal for Challenge Accounts */}
+      <Modal visible={showQuickSlModal} animationType="fade" transparent onRequestClose={() => setShowQuickSlModal(false)}>
+        <View style={styles.quickSlModalOverlay}>
+          <View style={[styles.quickSlModalContent, { backgroundColor: colors.bgCard }]}>
+            <View style={styles.quickSlModalHeader}>
+              <Ionicons name="warning" size={24} color="#f59e0b" />
+              <Text style={[styles.quickSlModalTitle, { color: colors.textPrimary }]}>Stop Loss Required</Text>
+            </View>
+            <Text style={[styles.quickSlModalSubtitle, { color: colors.textMuted }]}>
+              Stop Loss is mandatory for challenge accounts. Please set a stop loss price before placing your trade.
+            </Text>
+            
+            <View style={styles.quickSlInputContainer}>
+              <Text style={[styles.quickSlInputLabel, { color: colors.textMuted }]}>Stop Loss Price</Text>
+              <TextInput
+                style={[styles.quickSlInput, { backgroundColor: colors.bgSecondary, color: colors.textPrimary, borderColor: colors.border }]}
+                value={quickSlValue}
+                onChangeText={setQuickSlValue}
+                placeholder={`e.g. ${pendingQuickTradeSide === 'BUY' 
+                  ? (ctx.livePrices[selectedInstrument?.symbol]?.bid * 0.99)?.toFixed(selectedInstrument?.category === 'Forex' ? 5 : 2) 
+                  : (ctx.livePrices[selectedInstrument?.symbol]?.ask * 1.01)?.toFixed(selectedInstrument?.category === 'Forex' ? 5 : 2)}`}
+                placeholderTextColor={colors.textMuted}
+                keyboardType="decimal-pad"
+              />
+              <Text style={[styles.quickSlHint, { color: colors.textMuted }]}>
+                Current {pendingQuickTradeSide === 'BUY' ? 'Bid' : 'Ask'}: {pendingQuickTradeSide === 'BUY' 
+                  ? ctx.livePrices[selectedInstrument?.symbol]?.bid?.toFixed(selectedInstrument?.category === 'Forex' ? 5 : 2) 
+                  : ctx.livePrices[selectedInstrument?.symbol]?.ask?.toFixed(selectedInstrument?.category === 'Forex' ? 5 : 2)}
+              </Text>
+            </View>
+
+            <View style={styles.quickSlModalButtons}>
+              <TouchableOpacity 
+                style={[styles.quickSlCancelBtn, { backgroundColor: colors.bgSecondary }]}
+                onPress={() => {
+                  setShowQuickSlModal(false);
+                  setPendingQuickTradeSide(null);
+                  setQuickSlValue('');
+                }}
+              >
+                <Text style={[styles.quickSlCancelBtnText, { color: colors.textPrimary }]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.quickSlConfirmBtn, { backgroundColor: pendingQuickTradeSide === 'BUY' ? '#22c55e' : '#ef4444' }]}
+                onPress={() => {
+                  if (!quickSlValue || isNaN(parseFloat(quickSlValue))) {
+                    toast?.showToast('Please enter a valid stop loss price', 'warning');
+                    return;
+                  }
+                  const slValue = quickSlValue;
+                  const tradeSide = pendingQuickTradeSide;
+                  setStopLoss(slValue);
+                  setOrderSide(tradeSide);
+                  setOrderType('MARKET');
+                  setShowQuickSlModal(false);
+                  setPendingQuickTradeSide(null);
+                  setQuickSlValue('');
+                  // Execute trade with SL and side passed directly (avoid async state issues)
+                  setTimeout(() => executeTrade(slValue, tradeSide), 100);
+                }}
+              >
+                <Text style={styles.quickSlConfirmBtnText}>
+                  {pendingQuickTradeSide === 'BUY' ? 'BUY' : 'SELL'} with SL
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
@@ -3069,6 +3214,9 @@ const ChartTab = ({ route }) => {
   const [isExecuting, setIsExecuting] = useState(false);
   const [stopLoss, setStopLoss] = useState('');
   const [takeProfit, setTakeProfit] = useState('');
+  const [showChartSlModal, setShowChartSlModal] = useState(false);
+  const [chartSlValue, setChartSlValue] = useState('');
+  const [pendingChartTradeSide, setPendingChartTradeSide] = useState(null);
   
   // Get leverage from account
   const getAccountLeverage = () => {
@@ -3123,9 +3271,18 @@ const ChartTab = ({ route }) => {
   };
 
   // One-click trade execution - Fast execution
-  const executeOneClickTrade = async (side) => {
+  const executeOneClickTrade = async (side, slPrice = null) => {
     if (isExecuting) return;
-    if (!ctx.selectedAccount) {
+    
+    // Check if challenge mode with SL mandatory
+    if (ctx.isChallengeMode && ctx.selectedChallengeAccount?.challengeId?.rules?.stopLossMandatory && !slPrice) {
+      setPendingChartTradeSide(side);
+      setChartSlValue('');
+      setShowChartSlModal(true);
+      return;
+    }
+    
+    if (!ctx.selectedAccount && !ctx.selectedChallengeAccount) {
       toast?.showToast('Please select a trading account first', 'error');
       return;
     }
@@ -3139,23 +3296,30 @@ const ChartTab = ({ route }) => {
       const price = side === 'BUY' ? currentPrice.ask : currentPrice.bid;
       const segment = currentInstrument?.category || 'Forex';
       
+      const orderData = {
+        userId: ctx.user?._id,
+        tradingAccountId: ctx.isChallengeMode && ctx.selectedChallengeAccount 
+          ? ctx.selectedChallengeAccount._id 
+          : ctx.selectedAccount._id,
+        symbol: activeSymbol,
+        segment: segment,
+        side: side,
+        quantity: volume,
+        bid: currentPrice.bid,
+        ask: currentPrice.ask,
+        leverage: ctx.isChallengeMode ? ctx.selectedChallengeAccount?.leverage : ctx.selectedAccount?.leverage || '1:100',
+        orderType: 'MARKET'
+      };
+      
+      // Add SL if provided
+      if (slPrice) {
+        orderData.sl = parseFloat(slPrice);
+      }
+      
       const res = await fetch(`${API_URL}/trade/open`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: ctx.user?._id,
-          tradingAccountId: ctx.isChallengeMode && ctx.selectedChallengeAccount 
-            ? ctx.selectedChallengeAccount._id 
-            : ctx.selectedAccount._id,
-          symbol: activeSymbol,
-          segment: segment,
-          side: side,
-          quantity: volume,
-          bid: currentPrice.bid,
-          ask: currentPrice.ask,
-          leverage: ctx.selectedAccount.leverage || '1:100',
-          orderType: 'MARKET'
-        })
+        body: JSON.stringify(orderData)
       });
       const data = await res.json();
       if (data.success) {
@@ -3507,6 +3671,71 @@ const ChartTab = ({ route }) => {
                 </TouchableOpacity>
               ))}
             </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Chart SL Modal for Challenge Accounts */}
+      <Modal visible={showChartSlModal} animationType="fade" transparent onRequestClose={() => setShowChartSlModal(false)}>
+        <View style={styles.quickSlModalOverlay}>
+          <View style={[styles.quickSlModalContent, { backgroundColor: colors.bgCard }]}>
+            <View style={styles.quickSlModalHeader}>
+              <Ionicons name="warning" size={24} color="#f59e0b" />
+              <Text style={[styles.quickSlModalTitle, { color: colors.textPrimary }]}>Stop Loss Required</Text>
+            </View>
+            <Text style={[styles.quickSlModalSubtitle, { color: colors.textMuted }]}>
+              Stop Loss is mandatory for challenge accounts. Please set a stop loss price before placing your trade.
+            </Text>
+            
+            <View style={styles.quickSlInputContainer}>
+              <Text style={[styles.quickSlInputLabel, { color: colors.textMuted }]}>Stop Loss Price</Text>
+              <TextInput
+                style={[styles.quickSlInput, { backgroundColor: colors.bgSecondary, color: colors.textPrimary, borderColor: colors.border }]}
+                value={chartSlValue}
+                onChangeText={setChartSlValue}
+                placeholder={`e.g. ${pendingChartTradeSide === 'BUY' 
+                  ? (currentPrice?.bid * 0.99)?.toFixed(decimals) 
+                  : (currentPrice?.ask * 1.01)?.toFixed(decimals)}`}
+                placeholderTextColor={colors.textMuted}
+                keyboardType="decimal-pad"
+              />
+              <Text style={[styles.quickSlHint, { color: colors.textMuted }]}>
+                Current {pendingChartTradeSide === 'BUY' ? 'Bid' : 'Ask'}: {pendingChartTradeSide === 'BUY' 
+                  ? currentPrice?.bid?.toFixed(decimals) 
+                  : currentPrice?.ask?.toFixed(decimals)}
+              </Text>
+            </View>
+
+            <View style={styles.quickSlModalButtons}>
+              <TouchableOpacity 
+                style={[styles.quickSlCancelBtn, { backgroundColor: colors.bgSecondary }]}
+                onPress={() => {
+                  setShowChartSlModal(false);
+                  setPendingChartTradeSide(null);
+                  setChartSlValue('');
+                }}
+              >
+                <Text style={[styles.quickSlCancelBtnText, { color: colors.textPrimary }]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.quickSlConfirmBtn, { backgroundColor: pendingChartTradeSide === 'BUY' ? '#22c55e' : '#ef4444' }]}
+                onPress={() => {
+                  if (!chartSlValue || isNaN(parseFloat(chartSlValue))) {
+                    toast?.showToast('Please enter a valid stop loss price', 'warning');
+                    return;
+                  }
+                  setShowChartSlModal(false);
+                  // Execute trade with SL
+                  executeOneClickTrade(pendingChartTradeSide, chartSlValue);
+                  setPendingChartTradeSide(null);
+                  setChartSlValue('');
+                }}
+              >
+                <Text style={styles.quickSlConfirmBtnText}>
+                  {pendingChartTradeSide === 'BUY' ? 'BUY' : 'SELL'} with SL
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
@@ -4548,6 +4777,7 @@ const styles = StyleSheet.create({
   accountPickerHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: '#000000' },
   accountPickerTitle: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
   accountPickerList: { paddingHorizontal: 12, paddingBottom: 40 },
+  accountPickerSectionTitle: { fontSize: 12, fontWeight: '600', paddingHorizontal: 4, paddingTop: 12, paddingBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 },
   accountPickerItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, marginVertical: 4, backgroundColor: '#000000', borderRadius: 12 },
   accountPickerItemActive: { backgroundColor: '#dc262615', borderWidth: 1, borderColor: '#dc2626' },
   accountPickerItemLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
@@ -4557,6 +4787,22 @@ const styles = StyleSheet.create({
   accountPickerType: { color: '#666', fontSize: 12, marginTop: 2 },
   accountPickerItemRight: { alignItems: 'flex-end', gap: 4 },
   accountPickerBalance: { color: '#dc2626', fontSize: 16, fontWeight: 'bold' },
+  
+  // Quick SL Modal for Challenge Accounts
+  quickSlModalOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.7)' },
+  quickSlModalContent: { width: '85%', borderRadius: 16, padding: 20 },
+  quickSlModalHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 },
+  quickSlModalTitle: { fontSize: 18, fontWeight: 'bold' },
+  quickSlModalSubtitle: { fontSize: 13, lineHeight: 18, marginBottom: 16 },
+  quickSlInputContainer: { marginBottom: 20 },
+  quickSlInputLabel: { fontSize: 12, marginBottom: 6 },
+  quickSlInput: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12, fontSize: 16 },
+  quickSlHint: { fontSize: 11, marginTop: 6 },
+  quickSlModalButtons: { flexDirection: 'row', gap: 10 },
+  quickSlCancelBtn: { flex: 1, paddingVertical: 14, borderRadius: 10, alignItems: 'center' },
+  quickSlCancelBtnText: { fontSize: 15, fontWeight: '600' },
+  quickSlConfirmBtn: { flex: 1, paddingVertical: 14, borderRadius: 10, alignItems: 'center' },
+  quickSlConfirmBtnText: { color: '#fff', fontSize: 15, fontWeight: 'bold' },
 });
 
 export default MainTradingScreen;
