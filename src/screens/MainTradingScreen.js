@@ -1048,7 +1048,7 @@ const HomeTab = ({ navigation }) => {
 
       {/* Regular Account Card - When not in challenge mode */}
       {!ctx.isChallengeMode && ctx.selectedAccount && (
-        <View style={[styles.accountCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+        <View style={[styles.accountCard, { backgroundColor: colors.bgCard, borderColor: '#dc2626', borderWidth: 2 }]}>
           <TouchableOpacity style={styles.accountCardHeader} onPress={() => parentNav?.navigate('Accounts')}>
             <View style={[styles.accountIconContainer, { backgroundColor: colors.primary + '20' }]}>
               <Ionicons name="person-outline" size={20} color={colors.primary} />
