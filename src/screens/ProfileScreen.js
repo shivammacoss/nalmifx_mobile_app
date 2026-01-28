@@ -26,7 +26,7 @@ const ProfileScreen = ({ navigation }) => {
   const [showKycModal, setShowKycModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [kycData, setKycData] = useState({
-    documentType: 'PASSPORT',
+    documentType: 'passport',
     documentNumber: '',
     frontImage: null,
     backImage: null,
@@ -80,10 +80,16 @@ const ProfileScreen = ({ navigation }) => {
         setUser(parsed);
         // Convert relative path to full URL if needed
         let imageUrl = parsed.profileImage || null;
+        console.log('Loading profile image from storage:', imageUrl);
         if (imageUrl && imageUrl.startsWith('/uploads')) {
           const baseUrl = API_URL.replace('/api', '');
           imageUrl = `${baseUrl}${imageUrl}`;
         }
+        // Remove old cache-busting param and add new one if URL exists
+        if (imageUrl) {
+          imageUrl = imageUrl.split('?')[0] + `?t=${Date.now()}`;
+        }
+        console.log('Final profile image URL:', imageUrl);
         setProfileImage(imageUrl);
         setEditData({
           firstName: parsed.firstName || '',
@@ -105,7 +111,7 @@ const ProfileScreen = ({ navigation }) => {
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'],
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.8,
@@ -136,6 +142,7 @@ const ProfileScreen = ({ navigation }) => {
 
   const uploadProfileImage = async (imageUri) => {
     setUploadingImage(true);
+    console.log('Starting profile image upload:', imageUri);
     try {
       const token = await SecureStore.getItemAsync('token');
       const formData = new FormData();
@@ -146,32 +153,41 @@ const ProfileScreen = ({ navigation }) => {
         name: 'profile.jpg',
       });
 
+      console.log('Uploading to:', `${API_URL}/upload/profile-image`);
       const res = await fetch(`${API_URL}/upload/profile-image`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
-          'Content-Type': 'multipart/form-data',
         },
         body: formData,
       });
+      
+      console.log('Upload response status:', res.status);
       const data = await res.json();
+      console.log('Profile image upload response:', data);
+      
       if (data.success || data.profileImage) {
         // Convert relative path to full URL
         let imageUrl = data.profileImage || imageUri;
+        console.log('Original image URL from server:', imageUrl);
         if (imageUrl && imageUrl.startsWith('/uploads')) {
           const baseUrl = API_URL.replace('/api', '');
           imageUrl = `${baseUrl}${imageUrl}`;
         }
+        // Add cache-busting parameter to force reload
+        imageUrl = `${imageUrl}?t=${Date.now()}`;
+        console.log('Final image URL:', imageUrl);
         setProfileImage(imageUrl);
         const updatedUser = { ...user, profileImage: imageUrl };
         await SecureStore.setItemAsync('user', JSON.stringify(updatedUser));
         setUser(updatedUser);
         Alert.alert('Success', 'Profile image updated successfully');
       } else {
+        console.log('Profile image upload failed:', data);
         Alert.alert('Error', data.message || 'Failed to upload image');
       }
     } catch (e) {
-      console.error('Upload error:', e);
+      console.error('Upload error:', e.message);
       Alert.alert('Error', 'Failed to upload profile image');
     }
     setUploadingImage(false);
@@ -233,7 +249,7 @@ const ProfileScreen = ({ navigation }) => {
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'],
       allowsEditing: true,
       aspect: type === 'selfie' ? [1, 1] : [4, 3],
       quality: 0.8,
@@ -280,39 +296,45 @@ const ProfileScreen = ({ navigation }) => {
     try {
       const token = await SecureStore.getItemAsync('token');
       
-      // Convert images to base64
-      const convertToBase64 = async (uri) => {
-        if (!uri) return null;
-        const response = await fetch(uri);
-        const blob = await response.blob();
-        return new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result);
-          reader.onerror = reject;
-          reader.readAsDataURL(blob);
+      // Use FormData for file upload instead of base64
+      const formData = new FormData();
+      formData.append('userId', user._id);
+      formData.append('documentType', kycData.documentType);
+      formData.append('documentNumber', kycData.documentNumber);
+      
+      // Append front image
+      formData.append('frontImage', {
+        uri: kycData.frontImage,
+        type: 'image/jpeg',
+        name: 'front.jpg',
+      });
+      
+      // Append back image if exists
+      if (kycData.backImage) {
+        formData.append('backImage', {
+          uri: kycData.backImage,
+          type: 'image/jpeg',
+          name: 'back.jpg',
         });
-      };
+      }
+      
+      // Append selfie image
+      formData.append('selfieImage', {
+        uri: kycData.selfieImage,
+        type: 'image/jpeg',
+        name: 'selfie.jpg',
+      });
 
-      const frontImageBase64 = await convertToBase64(kycData.frontImage);
-      const backImageBase64 = kycData.backImage ? await convertToBase64(kycData.backImage) : null;
-      const selfieImageBase64 = await convertToBase64(kycData.selfieImage);
-
-      const res = await fetch(`${API_URL}/kyc/submit`, {
+      console.log('Submitting KYC with FormData...');
+      const res = await fetch(`${API_URL}/kyc/submit-files`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          userId: user._id,
-          documentType: kycData.documentType,
-          documentNumber: kycData.documentNumber,
-          frontImage: frontImageBase64,
-          backImage: backImageBase64,
-          selfieImage: selfieImageBase64,
-        }),
+        body: formData,
       });
       const data = await res.json();
+      console.log('KYC submit response:', data);
       if (data.success || data.kyc) {
         Alert.alert('Success', 'KYC documents submitted successfully. Please wait for verification.');
         setShowKycModal(false);
@@ -322,7 +344,7 @@ const ProfileScreen = ({ navigation }) => {
       }
     } catch (e) {
       console.error('KYC submit error:', e);
-      Alert.alert('Error', 'Failed to submit KYC documents');
+      Alert.alert('Error', 'Failed to submit KYC documents: ' + e.message);
     }
     setIsSubmitting(false);
   };
@@ -685,7 +707,7 @@ const ProfileScreen = ({ navigation }) => {
               {/* Document Type */}
               <Text style={[styles.inputLabel, { color: colors.textMuted }]}>Document Type</Text>
               <View style={styles.documentTypeRow}>
-                {['PASSPORT', 'NATIONAL_ID', 'DRIVING_LICENSE'].map((type) => (
+                {['passport', 'aadhaar', 'driving_license'].map((type) => (
                   <TouchableOpacity
                     key={type}
                     style={[
@@ -700,7 +722,7 @@ const ProfileScreen = ({ navigation }) => {
                       { color: colors.textMuted },
                       kycData.documentType === type && { color: colors.accent }
                     ]}>
-                      {type === 'PASSPORT' ? 'Passport' : type === 'NATIONAL_ID' ? 'Aadhar Card' : 'License'}
+                      {type === 'passport' ? 'Passport' : type === 'aadhaar' ? 'Aadhar Card' : 'License'}
                     </Text>
                   </TouchableOpacity>
                 ))}
