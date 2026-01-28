@@ -39,8 +39,6 @@ const IBScreen = ({ navigation }) => {
 
   useEffect(() => {
     if (user) {
-      // Set loading false early to show UI, then fetch data in background
-      setLoading(false);
       fetchIBProfile();
     }
   }, [user]);
@@ -89,6 +87,7 @@ const IBScreen = ({ navigation }) => {
       console.error('Error fetching IB profile:', e);
       setIbProfile(null);
     }
+    setLoading(false);
     setRefreshing(false);
   };
 
