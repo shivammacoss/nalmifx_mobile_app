@@ -178,7 +178,8 @@ const ProfileScreen = ({ navigation }) => {
         imageUrl = `${imageUrl}?t=${Date.now()}`;
         console.log('Final image URL:', imageUrl);
         setProfileImage(imageUrl);
-        const updatedUser = { ...user, profileImage: imageUrl };
+        // Store relative path in SecureStore, not full URL
+        const updatedUser = { ...user, profileImage: data.profileImage };
         await SecureStore.setItemAsync('user', JSON.stringify(updatedUser));
         setUser(updatedUser);
         Alert.alert('Success', 'Profile image updated successfully');
